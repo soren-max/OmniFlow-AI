@@ -68,6 +68,9 @@ All adapters implement the same `PlatformAdapter` abstract interface — adding 
 │  POST /api/projects/{id}/publish                                │
 │    → ContentProjectService.publish_project()                    │
 │    → adapter.mock_publish()                                     │
+│                                                                 │
+│  GET /api/runs/{run_id} and /steps                              │
+│    → AgentTraceService (in-memory Agent Run / Step records)     │
 └──────────────┬──────────────────────────────────┬───────────────┘
                │                                  │
                ▼                                  ▼
@@ -83,6 +86,13 @@ Create project → Select platforms → Generate previews → Mock publish
      ▲                                       │
      └────── (view results, then publish) ────┘
 ```
+
+### Agent Trace Foundation
+
+The backend includes foundational Agent Run and Agent Step data models plus an
+in-memory `AgentTraceService`. LangGraph is not integrated yet. Future workflow
+nodes will write Agent Step records, and Preview / Mock Publish will later be
+wrapped as traced steps.
 
 ---
 
@@ -345,7 +355,7 @@ The following features are **explicitly out of scope** for the current stage:
 |------------|--------|
 | Real platform publishing | ❌ Not implemented. `adapter.publish()` raises `NotImplementedError`. |
 | LangGraph workflow orchestration | ❌ Not introduced. All preview/preview/publish flows use direct adapter calls. |
-| Agent Run Trace | ❌ No run/step/tool-call persistence. |
+| Agent Run Trace | ✅ Basic in-memory run/step models and service exist; not yet connected to LangGraph. |
 | Human Review workflow | ❌ No approval/rejection flow before publish. |
 | Evaluation Reports | ❌ No quality scoring, consistency checks, or evaluation metrics. |
 | Authentication / Authorization | ❌ No user system, API keys, or session management. |

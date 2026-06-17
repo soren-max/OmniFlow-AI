@@ -12,6 +12,7 @@ The project is in **Phase 1-2** (Repository Bootstrap + Mock Publish). The adapt
 - **Mock adapters** for all 5 target platforms (WeChat, Zhihu, Bilibili, Xiaohongshu, Douyin).
 - **Adapter registry** for platform → class resolution.
 - Shared adapter data types: Platform, PlatformContent, ValidationResult, PublishResult, etc.
+- **Agent trace data models and service layer** for in-memory Agent Run / Agent Step records.
 
 No Agent workflow, database models, or real platform publish implementations exist yet.
 The current publishing path is mock-only.
@@ -54,7 +55,7 @@ The current publishing path is mock-only.
 ├─────────────────────┤
 │  Evaluators         │  Quality evaluation (future)
 ├─────────────────────┤
-│  Telemetry          │  Logging, tracing, metrics (future)
+│  Telemetry          │  Agent run/step trace records now; logging and metrics later
 └─────────────────────┘
 ```
 
@@ -65,7 +66,23 @@ The current publishing path is mock-only.
 - **API-first**: Frontend communicates through a well-defined REST API.
 - **Adapter pattern**: Platform-specific logic is isolated behind a common interface.
 - **Registry-based platform lookup**: New platforms are added by creating a `PlatformAdapter` implementation and registering it in `apps/api/app/adapters/registry.py`.
+- **Trace boundary first**: Agent Run and Agent Step records live behind an in-memory repository and `AgentTraceService` before LangGraph is introduced.
 - **Human-in-the-loop**: Publishing requires explicit approval before execution.
+
+## Agent Trace Data Model
+
+The current trace implementation is intentionally small and does not run an Agent workflow.
+It provides the data structures and service boundary needed by future LangGraph nodes:
+
+- `AgentRun` represents one future Agent workflow execution for a project.
+- `AgentStep` represents one future node execution within a run.
+- Both records track status, input/output snapshots, errors, timestamps, and latency.
+- `AgentStep.tool_calls` can record tool call metadata once tools are introduced.
+- `TraceRepository` is in-memory only and will be replaced by database persistence later.
+
+Future LangGraph integration will create one Agent Run per workflow and write one Agent
+Step per node. Existing preview generation and Mock Publish are not yet recorded in trace,
+but they are expected to become traced steps once orchestration is added.
 
 ## PlatformAdapter Flow
 

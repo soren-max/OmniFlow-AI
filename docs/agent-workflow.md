@@ -14,12 +14,32 @@ The repository is currently in Phase 1-2. LangGraph will be introduced in a late
 
 Today the product is in an adapter-driven preview stage. `POST /api/projects/{id}/preview`
 uses the PlatformAdapter registry to produce mock previews for WeChat, Zhihu,
-Bilibili, Xiaohongshu, and Douyin. No LangGraph workflow, real publishing, or
-Agent trace persistence is implemented yet.
+Bilibili, Xiaohongshu, and Douyin. No LangGraph workflow or real publishing is
+implemented yet.
+
+The repository now includes foundational Trace data models and service methods:
+
+- Agent Run records describe one future workflow execution.
+- Agent Step records describe one future node execution.
+- The trace repository is in-memory only.
+- The trace service supports create, finish, fail, and list operations.
+
+This is not a LangGraph integration. It only defines the execution trace boundary that
+future workflow nodes will use.
 
 LangGraph should be introduced after the API contract, PlatformAdapter behavior,
 project data model, Agent Run / Agent Step records, and human review status flow
 are stable.
+
+## Trace Recording Plan
+
+When LangGraph is introduced, each workflow invocation will create one Agent Run.
+Each LangGraph node will create one Agent Step when it starts, then finish or fail
+that step with output snapshots, tool calls, latency, and error details.
+
+Preview generation and Mock Publish are still direct service calls today. In a later
+workflow PR, they should be wrapped as traced nodes so preview and mock publish results
+are captured inside Agent Step records.
 
 ## Intended Workflow (Future)
 
@@ -77,4 +97,5 @@ Source Content / Idea
 
 ## Not in MVP
 
-This entire workflow is out of scope for the bootstrap stage.
+The full LangGraph workflow remains out of scope for the bootstrap stage. The current
+trace service is only a data model and service boundary for future orchestration.
