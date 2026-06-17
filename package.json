@@ -1,0 +1,20 @@
+{
+  "name": "contentops-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Enterprise AI Agent platform for multi-platform content operations.",
+  "scripts": {
+    "dev": "pnpm --filter @contentops/web dev",
+    "build": "pnpm --filter @contentops/web build",
+    "lint": "pnpm --filter @contentops/web lint",
+    "typecheck": "pnpm --filter @contentops/web typecheck",
+    "test": "pnpm --filter @contentops/web test",
+    "format": "prettier --write \"apps/web/**/*.{ts,tsx,js,jsx,json,css,md}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.4.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
