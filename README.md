@@ -24,6 +24,7 @@ Manually adapting content for each platform is time-consuming, error-prone, and 
 - Adapter registry                ✅
 - Mock publish                    ✅
 - LangGraph workflow skeleton     ✅
+- Agent Run / Step trace records  ✅
 - FastAPI backend                 ✅
 - Next.js frontend                ✅
 - Enterprise repository standards ✅
@@ -73,6 +74,10 @@ All adapters implement the same `PlatformAdapter` abstract interface — adding 
 │  POST /api/projects/{id}/agent-preview                          │
 │    → LangGraph deterministic preview workflow                   │
 │    → PlatformAdapterRegistry.get_adapter(platform)              │
+│    → TraceService records Agent Run + Agent Step records         │
+│                                                                 │
+│  GET /api/runs/{run_id} and /api/runs/{run_id}/steps             │
+│    → TraceService reads in-memory workflow trace records         │
 └──────────────┬──────────────────────────────────┬───────────────┘
                │                                  │
                ▼                                  ▼
@@ -94,7 +99,9 @@ Create project → Select platforms → Generate previews → Mock publish
 The backend includes a minimal LangGraph workflow for experimental preview generation:
 intake → platform strategy → preview generation → finish. The workflow is deterministic,
 does not call a real LLM, and still uses `PlatformAdapter` as the platform adaptation
-boundary. Real publishing, Human Review, Agent Run Trace integration, and Evaluation
+boundary. Each workflow execution creates an in-memory Agent Run record, and each
+node writes an Agent Step record with status, input/output snapshots, latency, and
+errors. Real publishing, Human Review, persistent trace storage, and Evaluation
 remain future work.
 
 ---
@@ -197,6 +204,24 @@ curl -X POST http://localhost:8000/api/projects/a1b2c3d4e5f6/publish \
     "published_at": "2025-01-01T00:00:00Z"
   }
 }
+```
+
+### Agent preview with trace
+
+```bash
+curl -X POST http://localhost:8000/api/projects/a1b2c3d4e5f6/agent-preview \
+  -H "Content-Type: application/json" \
+  -d '{
+    "platforms": ["wechat", "zhihu", "bilibili", "xiaohongshu", "douyin"]
+  }'
+```
+
+The response includes workflow state and `run_id`. Use that id to inspect the
+trace:
+
+```bash
+curl http://localhost:8000/api/runs/{run_id}
+curl http://localhost:8000/api/runs/{run_id}/steps
 ```
 
 ### Health check
@@ -358,11 +383,12 @@ The following features are **explicitly out of scope** for the current stage:
 |------------|--------|
 | Real platform publishing | ❌ Not implemented. `adapter.publish()` raises `NotImplementedError`. |
 | LangGraph workflow orchestration | ✅ Minimal deterministic preview skeleton only; no LLM calls. |
-| Agent Run Trace | ❌ No run/step/tool-call persistence. |
+| Agent Run Trace | ✅ In-memory Agent Run and Agent Step records for the LangGraph preview skeleton. |
 | Human Review workflow | ❌ No approval/rejection flow before publish. |
 | Evaluation Reports | ❌ No quality scoring, consistency checks, or evaluation metrics. |
 | Authentication / Authorization | ❌ No user system, API keys, or session management. |
 | Database persistence | ❌ Projects stored in memory only (volatile). |
+| Trace persistence | ❌ Trace records are in memory only (volatile). |
 | Frontend tests | ❌ `pnpm test` is a placeholder — no Vitest/Jest configured. |
 
 ---
@@ -373,8 +399,8 @@ The following features are **explicitly out of scope** for the current stage:
 |-------|-------|--------|
 | **Phase 1** | Repository bootstrap and adapter-driven preview | ✅ **Done** |
 | **Phase 2** | Mock Publish and API schema stabilization | ✅ **Done** |
-| **Phase 3** | Agent Run Trace and Human Review | 🔜 Planned |
-| **Phase 4** | LangGraph workflow orchestration | 🔜 Planned |
+| **Phase 3** | LangGraph preview skeleton and in-memory Agent Run Trace | ✅ **In progress** |
+| **Phase 4** | Human Review and persistent workflow orchestration | 🔜 Planned |
 | **Phase 5** | Evaluation and observability | 🔜 Planned |
 | **Phase 6** | Real publishing integrations with explicit approval | 🔜 Planned |
 
@@ -388,11 +414,11 @@ ContentOps Agent is designed as a **demonstration-quality project** for AI Agent
 
 The codebase is structured for Agent workflow integration from day one:
 
-- `agents/` module reserved for LangGraph orchestration (future).
+- `agents/` module contains the deterministic LangGraph preview skeleton.
 - `adapters/` module provides the tool-calling interface that agents will invoke.
 - `schemas/` holds Pydantic models that define the input/output contract for every Agent node.
 - `services/` contains business logic that can be called by both API routes and Agent nodes.
-- `telemetry/` and `evaluators/` modules are reserved for run tracing and quality scoring.
+- `telemetry/` contains in-memory Agent Run and Agent Step records; `evaluators/` remains reserved for quality scoring.
 
 ### Tool / Adapter Abstraction
 

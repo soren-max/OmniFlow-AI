@@ -1,12 +1,19 @@
-"""Observability, tracing, and logging.
+"""Observability, tracing, and logging."""
 
-WARNING: Do NOT implement OpenTelemetry in this stage.
-This module is reserved for future stages when structured
-logging and tracing are introduced.
+from .schemas import AgentRun, AgentStep, TraceStatus
+from .service import (
+    AgentRunNotFoundError,
+    AgentStepNotFoundError,
+    TraceService,
+    trace_service,
+)
 
-TODO (future):
-- Structured logging setup
-- OpenTelemetry instrumentation
-- Agent run trace recording
-- Performance metrics
-"""
+__all__ = [
+    "AgentRun",
+    "AgentRunNotFoundError",
+    "AgentStep",
+    "AgentStepNotFoundError",
+    "TraceService",
+    "TraceStatus",
+    "trace_service",
+]

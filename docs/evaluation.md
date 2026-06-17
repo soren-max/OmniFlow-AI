@@ -7,6 +7,11 @@ No evaluation system has been implemented. The `evals/` directory at the project
 - `evals/datasets/` — test datasets for evaluating Agent performance.
 - `evals/reports/` — generated evaluation reports.
 
+The deterministic LangGraph preview workflow now records in-memory Agent Run and
+Agent Step traces. Those records include status, input/output snapshots, latency,
+and errors, which gives future Evaluation work a baseline event history. Current
+trace records are not evaluation scores and are not persisted to PostgreSQL yet.
+
 ## Intended Evaluation Framework (Future)
 
 ### Dimensions
@@ -31,11 +36,16 @@ No evaluation system has been implemented. The `evals/` directory at the project
 
 ### Data Collection (Future)
 
-- Every Agent run is recorded with full step traces.
-- Tool calls, latency, errors, and token usage are logged.
+- Every Agent run is recorded with step traces in the current in-memory trace
+  service.
+- Tool calls, latency, errors, and token usage will be logged as the workflow
+  expands. The current deterministic workflow records latency and errors, while
+  token usage is absent because no LLM is called.
 - User feedback (ratings and comments) is collected.
 - Evaluation datasets can be used for regression testing.
 
 ## Not in MVP
 
-The evaluation framework, metrics, and data collection are not yet implemented.
+The evaluation framework, metrics, persistent evaluation data collection, and
+token usage reporting are not yet implemented. The current trace service only
+captures deterministic workflow run/step records for future evaluation inputs.
