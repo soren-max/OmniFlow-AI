@@ -9,8 +9,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import pytest
-from api.app.adapters.base import PlatformAdapter  # type: ignore[import-untyped]
-from api.app.adapters.types import (  # type: ignore[import-untyped]
+from api.app.adapters.base import PlatformAdapter
+from api.app.adapters.types import (
     Platform,
     PlatformContent,
     PreviewResult,
@@ -86,7 +86,7 @@ class TestPlatformContent:
     def test_platform_required(self) -> None:
         """PlatformContent must have a platform."""
         with pytest.raises(ValidationError):
-            PlatformContent()
+            PlatformContent.model_validate({})
 
 
 # ── ValidationResult ──────────────────────────────────────────────────
@@ -187,21 +187,21 @@ class TestPlatformAdapterInterface:
     def test_abstract_class_cannot_be_instantiated(self) -> None:
         """PlatformAdapter should be abstract and not instantiable."""
         with pytest.raises(TypeError, match="abstract"):
-            PlatformAdapter()
+            PlatformAdapter()  # type: ignore[abstract]
 
     def test_concrete_subclass_must_implement_all_methods(self) -> None:
         """A subclass missing methods should fail instantiation."""
 
-        class IncompleteAdapter(PlatformAdapter):  # type: ignore[misc]
+        class IncompleteAdapter(PlatformAdapter):
             pass
 
         with pytest.raises(TypeError, match="abstract"):
-            IncompleteAdapter()
+            IncompleteAdapter()  # type: ignore[abstract]
 
     def test_concrete_subclass_can_be_instantiated(self) -> None:
         """A subclass implementing all methods should work."""
 
-        class MockAdapter(PlatformAdapter):  # type: ignore[misc]
+        class MockAdapter(PlatformAdapter):
             platform = Platform.WECHAT
 
             @property

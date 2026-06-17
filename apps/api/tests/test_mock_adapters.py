@@ -10,26 +10,28 @@ Each platform adapter is tested for:
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 import pytest
-from api.app.adapters.base import PlatformAdapter  # type: ignore[import-untyped]
-from api.app.adapters.bilibili_adapter import BilibiliAdapter  # type: ignore[import-untyped]
-from api.app.adapters.douyin_adapter import DouyinAdapter  # type: ignore[import-untyped]
-from api.app.adapters.registry import (  # type: ignore[import-untyped]
+from api.app.adapters.base import PlatformAdapter
+from api.app.adapters.bilibili_adapter import BilibiliAdapter
+from api.app.adapters.douyin_adapter import DouyinAdapter
+from api.app.adapters.registry import (
     AdapterNotFoundError,
     get_adapter,
     list_adapters,
     register_adapter,
 )
-from api.app.adapters.types import (  # type: ignore[import-untyped]
+from api.app.adapters.types import (
     Platform,
     PlatformContent,
     PreviewResult,
     PublishResult,
     ValidationResult,
 )
-from api.app.adapters.wechat_adapter import WeChatAdapter  # type: ignore[import-untyped]
-from api.app.adapters.xiaohongshu_adapter import XiaohongshuAdapter  # type: ignore[import-untyped]
-from api.app.adapters.zhihu_adapter import ZhihuAdapter  # type: ignore[import-untyped]
+from api.app.adapters.wechat_adapter import WeChatAdapter
+from api.app.adapters.xiaohongshu_adapter import XiaohongshuAdapter
+from api.app.adapters.zhihu_adapter import ZhihuAdapter
 
 # ── Shared fixture ────────────────────────────────────────────────────────────
 
@@ -70,7 +72,7 @@ def _make_content(
     title: str = "Test Title",
     body: str = SAMPLE_BODY,
     tags: list[str] | None = None,
-    **kwargs: object,
+    **kwargs: Any,
 ) -> PlatformContent:
     """Helper to create PlatformContent with overrides."""
     resolved_tags = tags if tags is not None else ["tag1", "tag2", "tag3"]
@@ -432,7 +434,7 @@ class TestAdapterRegistry:
     def test_register_adapter_custom(self) -> None:
         """Registering a custom adapter should override the existing one."""
 
-        class CustomWeChatAdapter(WeChatAdapter):  # type: ignore[misc]
+        class CustomWeChatAdapter(WeChatAdapter):
             @property
             def platform_name(self) -> str:
                 return "Custom WeChat"
@@ -452,7 +454,7 @@ class TestAdapterRegistry:
             pass
 
         with pytest.raises(TypeError, match="PlatformAdapter"):
-            register_adapter(Platform.WECHAT, NotAnAdapter)
+            register_adapter(Platform.WECHAT, cast(type[PlatformAdapter], NotAnAdapter))
 
     def test_all_adapters_satisfy_interface(self) -> None:
         """Every adapter in the registry should implement PlatformAdapter."""

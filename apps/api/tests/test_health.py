@@ -8,7 +8,7 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 
 import pytest
-from api.app.main import app  # type: ignore[import-untyped]
+from api.app.main import app
 from httpx import ASGITransport, AsyncClient
 
 
@@ -46,3 +46,15 @@ async def test_root_returns_service_info(client: AsyncClient) -> None:
     assert "service" in data
     assert "docs" in data
     assert "health" in data
+
+
+@pytest.mark.asyncio
+async def test_missing_route_returns_error_envelope(client: AsyncClient) -> None:
+    """Test that HTTP errors use the standard API response envelope."""
+    response = await client.get("/missing")
+    assert response.status_code == 404
+    data = response.json()
+    assert data["success"] is False
+    assert data["data"] is None
+    assert data["error"]["code"] == "HTTP_ERROR"
+    assert data["error"]["message"] == "Not Found"

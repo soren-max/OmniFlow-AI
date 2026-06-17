@@ -53,6 +53,8 @@ skip-magic-trailing-comma = false
 
 [tool.mypy]
 python_version = "3.12"
+mypy_path = "apps"
+explicit_package_bases = true
 strict = true
 warn_unused_configs = true
 warn_redundant_casts = true
@@ -66,7 +68,7 @@ warn_return_any = true
 warn_unreachable = true
 
 [[tool.mypy.overrides]]
-module = "tests.*"
+module = "api.tests.*"
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
 

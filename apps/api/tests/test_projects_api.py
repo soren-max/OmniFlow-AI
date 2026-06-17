@@ -6,10 +6,10 @@ from collections.abc import AsyncGenerator
 from typing import Any, cast
 
 import pytest
-from api.app.adapters.types import PlatformContent  # type: ignore[import-untyped]
-from api.app.adapters.wechat_adapter import WeChatAdapter  # type: ignore[import-untyped]
-from api.app.main import app  # type: ignore[import-untyped]
-from api.app.repositories.project_repository import (  # type: ignore[import-untyped]
+from api.app.adapters.types import PlatformContent
+from api.app.adapters.wechat_adapter import WeChatAdapter
+from api.app.main import app
+from api.app.repositories.project_repository import (
     ProjectRepository,
 )
 from httpx import ASGITransport, AsyncClient, Response
@@ -63,7 +63,7 @@ def _clean_repo() -> None:
     Since the API uses a singleton service, we need to clear the
     underlying repository between tests to avoid state leakage.
     """
-    from api.app.api.projects import _service  # type: ignore[import-untyped]
+    from api.app.api.projects import _service
 
     repo: ProjectRepository = _service._repository
     repo.clear()

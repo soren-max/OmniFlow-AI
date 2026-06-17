@@ -7,12 +7,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from api.app.adapters.registry import get_adapter  # type: ignore[import-untyped]
-from api.app.adapters.types import (  # type: ignore[import-untyped]
+from api.app.adapters.registry import get_adapter
+from api.app.adapters.types import (
     Platform,
     PlatformContent,
 )
-from api.app.repositories.project_repository import (  # type: ignore[import-untyped]
+from api.app.repositories.project_repository import (
     ProjectRecord,
     ProjectRepository,
 )
@@ -90,7 +90,7 @@ class ContentProjectService:
             source_url=source_url,
         )
         self._repository.save(record)
-        return record.to_dict()  # type: ignore[no-any-return]
+        return record.to_dict()
 
     def get_project(self, project_id: str) -> dict[str, Any]:
         """Retrieve a project by its id.
@@ -107,7 +107,7 @@ class ContentProjectService:
         record = self._repository.find_by_id(project_id)
         if record is None:
             raise ProjectNotFoundError(project_id)
-        return record.to_dict()  # type: ignore[no-any-return]
+        return record.to_dict()
 
     def generate_previews(
         self,

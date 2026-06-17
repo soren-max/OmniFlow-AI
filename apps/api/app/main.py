@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .api import api_router
 from .core import settings
@@ -51,9 +52,9 @@ def _validation_errors(exc: RequestValidationError) -> list[dict[str, Any]]:
     return errors
 
 
-@app.exception_handler(HTTPException)
-async def http_exception_handler(_request: Request, exc: HTTPException) -> JSONResponse:
-    """Convert FastAPI HTTPException into the standard API envelope."""
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(_request: Request, exc: StarletteHTTPException) -> JSONResponse:
+    """Convert HTTP exceptions into the standard API envelope."""
     code = "HTTP_ERROR"
     raw_detail: object = exc.detail
     message = str(raw_detail)

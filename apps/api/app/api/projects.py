@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from api.app.adapters.registry import AdapterNotFoundError  # type: ignore[import-untyped]
-from api.app.schemas.common import ApiResponse, ok  # type: ignore[import-untyped]
-from api.app.schemas.project import (  # type: ignore[import-untyped]
+from api.app.adapters.registry import AdapterNotFoundError
+from api.app.schemas.common import ApiResponse, ok
+from api.app.schemas.project import (
     ContentProjectResponse,
     CreateContentProjectRequest,
     GeneratePreviewRequest,
@@ -17,7 +17,7 @@ from api.app.schemas.project import (  # type: ignore[import-untyped]
     PublishProjectRequest,
     PublishProjectResponse,
 )
-from api.app.services.project_service import (  # type: ignore[import-untyped]
+from api.app.services.project_service import (
     AdapterExecutionError,
     ContentProjectService,
     InvalidPlatformError,
