@@ -12,8 +12,9 @@ The project is in **Phase 1-2** (Repository Bootstrap + Mock Publish). The adapt
 - **Mock adapters** for all 5 target platforms (WeChat, Zhihu, Bilibili, Xiaohongshu, Douyin).
 - **Adapter registry** for platform → class resolution.
 - Shared adapter data types: Platform, PlatformContent, ValidationResult, PublishResult, etc.
+- **Deterministic LangGraph preview workflow skeleton** in `apps/api/app/agents/`.
 
-No Agent workflow, database models, or real platform publish implementations exist yet.
+No LLM-backed Agent workflow, database models, or real platform publish implementations exist yet.
 The current publishing path is mock-only.
 
 ## Intended Architecture (Future)
@@ -48,7 +49,7 @@ The current publishing path is mock-only.
 ├─────────────────────┤
 │  SQLAlchemy Models  │  ORM mappings
 ├─────────────────────┤
-│  Agents (LangGraph) │  AI workflow orchestration (future)
+│  Agents (LangGraph) │  Deterministic preview skeleton now; AI orchestration later
 ├─────────────────────┤
 │  Adapters           │  Platform-specific publishing (mock adapters + registry done)
 ├─────────────────────┤
@@ -65,7 +66,20 @@ The current publishing path is mock-only.
 - **API-first**: Frontend communicates through a well-defined REST API.
 - **Adapter pattern**: Platform-specific logic is isolated behind a common interface.
 - **Registry-based platform lookup**: New platforms are added by creating a `PlatformAdapter` implementation and registering it in `apps/api/app/adapters/registry.py`.
+- **Deterministic workflow first**: LangGraph is used for a small preview workflow skeleton without LLM calls or provider SDKs.
 - **Human-in-the-loop**: Publishing requires explicit approval before execution.
+
+## LangGraph Workflow Skeleton
+
+The current Agent layer contains a minimal `StateGraph` for content preview:
+
+1. `intake` normalizes source title, source content, and target platform identifiers.
+2. `platform_strategy` attaches deterministic strategy labels for requested platforms.
+3. `preview_generation` resolves each platform through the PlatformAdapter registry and builds previews.
+4. `finish` marks the workflow as completed or failed.
+
+The runner in `apps/api/app/agents/runner.py` hides LangGraph internals from future
+service callers. Existing preview and mock publish services remain intact.
 
 ## PlatformAdapter Flow
 
@@ -85,7 +99,7 @@ credential handling, and trace logging are in place.
 
 ## Not in MVP
 
-- LangGraph agent orchestration.
+- LLM-backed LangGraph agent orchestration.
 - **Real platform API integration** (mock adapters and mock publish are done).
 - Evaluation system.
 - OpenTelemetry instrumentation.

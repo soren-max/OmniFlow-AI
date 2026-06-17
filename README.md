@@ -23,6 +23,7 @@ Manually adapting content for each platform is time-consuming, error-prone, and 
 - Five platform adapters          ✅
 - Adapter registry                ✅
 - Mock publish                    ✅
+- LangGraph workflow skeleton     ✅
 - FastAPI backend                 ✅
 - Next.js frontend                ✅
 - Enterprise repository standards ✅
@@ -68,6 +69,10 @@ All adapters implement the same `PlatformAdapter` abstract interface — adding 
 │  POST /api/projects/{id}/publish                                │
 │    → ContentProjectService.publish_project()                    │
 │    → adapter.mock_publish()                                     │
+│                                                                 │
+│  POST /api/projects/{id}/agent-preview                          │
+│    → LangGraph deterministic preview workflow                   │
+│    → PlatformAdapterRegistry.get_adapter(platform)              │
 └──────────────┬──────────────────────────────────┬───────────────┘
                │                                  │
                ▼                                  ▼
@@ -83,6 +88,14 @@ Create project → Select platforms → Generate previews → Mock publish
      ▲                                       │
      └────── (view results, then publish) ────┘
 ```
+
+### LangGraph Preview Skeleton
+
+The backend includes a minimal LangGraph workflow for experimental preview generation:
+intake → platform strategy → preview generation → finish. The workflow is deterministic,
+does not call a real LLM, and still uses `PlatformAdapter` as the platform adaptation
+boundary. Real publishing, Human Review, Agent Run Trace integration, and Evaluation
+remain future work.
 
 ---
 
@@ -344,7 +357,7 @@ The following features are **explicitly out of scope** for the current stage:
 | Limitation | Status |
 |------------|--------|
 | Real platform publishing | ❌ Not implemented. `adapter.publish()` raises `NotImplementedError`. |
-| LangGraph workflow orchestration | ❌ Not introduced. All preview/preview/publish flows use direct adapter calls. |
+| LangGraph workflow orchestration | ✅ Minimal deterministic preview skeleton only; no LLM calls. |
 | Agent Run Trace | ❌ No run/step/tool-call persistence. |
 | Human Review workflow | ❌ No approval/rejection flow before publish. |
 | Evaluation Reports | ❌ No quality scoring, consistency checks, or evaluation metrics. |

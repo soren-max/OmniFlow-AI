@@ -1,25 +1,28 @@
 # Agent Workflow
 
-## Current Stage (Phase 1-2: Adapter-Driven Preview + Mock Publish)
+## Current Stage (Phase 3: Deterministic LangGraph Skeleton)
 
-**Do NOT introduce LangGraph in this stage.**
+LangGraph is now introduced as a minimal deterministic workflow skeleton.
+It does not call an LLM, external model provider, real platform API, Human Review,
+or Evaluation service.
 
-The repository is currently in Phase 1-2. LangGraph will be introduced in a later stage when:
+The current skeleton includes:
 
-1. The basic FastAPI application is stable. ✅
-2. Database models and migrations are in place.
-3. The **PlatformAdapter abstract interface** is designed and reviewed. ✅
-4. **Mock platform adapter implementations** exist for all 5 platforms. ✅
-5. The evaluation framework is designed.
+1. `intake_node` for deterministic input cleanup and validation.
+2. `platform_strategy_node` for simple platform strategy labels.
+3. `preview_generation_node` for adapter-backed preview generation.
+4. `finish_node` for marking the workflow complete.
 
-Today the product is in an adapter-driven preview stage. `POST /api/projects/{id}/preview`
-uses the PlatformAdapter registry to produce mock previews for WeChat, Zhihu,
-Bilibili, Xiaohongshu, and Douyin. No LangGraph workflow, real publishing, or
-Agent trace persistence is implemented yet.
+Today the product still uses the existing `POST /api/projects/{id}/preview` API for
+the main preview path. The experimental `POST /api/projects/{id}/agent-preview`
+endpoint calls the LangGraph runner and returns workflow state for validation.
 
-LangGraph should be introduced after the API contract, PlatformAdapter behavior,
-project data model, Agent Run / Agent Step records, and human review status flow
-are stable.
+The PlatformAdapter registry remains the core platform abstraction. The workflow
+preview node resolves adapters through the registry and does not hardcode
+platform-specific adapter behavior.
+
+Preview and Mock Publish will later be connected to Agent Run Trace. Human Review
+and Evaluation remain future work.
 
 ## Intended Workflow (Future)
 
@@ -77,4 +80,6 @@ Source Content / Idea
 
 ## Not in MVP
 
-This entire workflow is out of scope for the bootstrap stage.
+The full Agent workflow is still out of scope. This PR adds only the deterministic
+LangGraph preview skeleton. Real LLM calls, Prompt Engineering, RAG, Human Review,
+Evaluation, and real publishing are not implemented.
