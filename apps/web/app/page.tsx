@@ -1,0 +1,285 @@
+"use client";
+
+import { useState, useCallback } from "react";
+import { ContentEditor } from "@/components/ContentEditor";
+import { PlatformSelector } from "@/components/PlatformSelector";
+import { PreviewCard } from "@/components/PreviewCard";
+import { api, ApiError } from "@/lib/api";
+import type {
+  Platform,
+  ProjectPreviewItem,
+  ProjectResponse,
+  GeneratePreviewResponse,
+  PlatformPublishResultItem,
+} from "@/types";
+
+type PageStep = "input" | "loading" | "result" | "error";
+
+export default function Home() {
+  const [title, setTitle] = useState("");
+  const [sourceText, setSourceText] = useState("");
+  const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([]);
+  const [step, setStep] = useState<PageStep>("input");
+  const [previews, setPreviews] = useState<ProjectPreviewItem[]>([]);
+  const [projectId, setProjectId] = useState("");
+  const [projectTitle, setProjectTitle] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [publishPlatforms, setPublishPlatforms] = useState<Platform[]>([]);
+  const [publishResults, setPublishResults] = useState<PlatformPublishResultItem[]>([]);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishError, setPublishError] = useState("");
+
+  const canSubmit =
+    title.trim().length > 0 && sourceText.trim().length > 0 && selectedPlatforms.length > 0;
+
+  const handleSubmit = useCallback(async () => {
+    if (!canSubmit) return;
+
+    setStep("loading");
+    setErrorMessage("");
+
+    try {
+      // Step 1: Create project
+      const projectResp = await api.post<ProjectResponse>("/api/projects", {
+        title: title.trim(),
+        source_text: sourceText.trim(),
+      });
+      const project = projectResp.data;
+
+      // Step 2: Generate previews
+      const previewResp = await api.post<GeneratePreviewResponse>(
+        `/api/projects/${project.id}/preview`,
+        { platforms: selectedPlatforms },
+      );
+
+      setPreviews(previewResp.data.previews);
+      setProjectId(project.id);
+      setProjectTitle(project.title);
+      setPublishPlatforms(selectedPlatforms);
+      setPublishResults([]);
+      setPublishError("");
+      setStep("result");
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setErrorMessage(
+          err.status === 0
+            ? "无法连接到后端服务，请确认后端已启动"
+            : `请求失败 (${err.status}): ${err.message}`,
+        );
+      } else {
+        setErrorMessage("发生未知错误，请稍后重试");
+      }
+      setStep("error");
+    }
+  }, [title, sourceText, selectedPlatforms, canSubmit]);
+
+  const handleReset = useCallback(() => {
+    setStep("input");
+    setPreviews([]);
+    setProjectId("");
+    setProjectTitle("");
+    setErrorMessage("");
+    setPublishPlatforms([]);
+    setPublishResults([]);
+    setPublishError("");
+    setIsPublishing(false);
+  }, []);
+
+  const handleMockPublish = useCallback(async () => {
+    if (!projectId || publishPlatforms.length === 0) return;
+
+    setIsPublishing(true);
+    setPublishError("");
+
+    try {
+      const publishResp = await api.publishProject(projectId, {
+        target_platforms: publishPlatforms,
+        mode: "mock",
+      });
+      setPublishResults(publishResp.data.results);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setPublishError(`发布失败 (${err.status}): ${err.message}`);
+      } else {
+        setPublishError("发布失败，请稍后重试");
+      }
+    } finally {
+      setIsPublishing(false);
+    }
+  }, [projectId, publishPlatforms]);
+
+  return (
+    <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Header */}
+      <header className="border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+          <div>
+            <h1 className="text-lg font-bold text-gray-900 dark:text-white">ContentOps Agent</h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Enterprise AI Agent platform for multi-platform content operations.
+            </p>
+          </div>
+          {step !== "input" && (
+            <button
+              onClick={handleReset}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+            >
+              ← 新建项目
+            </button>
+          )}
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-5xl px-6 py-8">
+        {/* ── Input Step ── */}
+        {step === "input" && (
+          <div className="space-y-6">
+            <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+              <h2 className="mb-4 text-base font-semibold text-gray-800 dark:text-gray-200">
+                内容输入
+              </h2>
+              <ContentEditor
+                title={title}
+                sourceText={sourceText}
+                onTitleChange={setTitle}
+                onSourceTextChange={setSourceText}
+              />
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+              <h2 className="mb-4 text-base font-semibold text-gray-800 dark:text-gray-200">
+                目标平台
+              </h2>
+              <PlatformSelector selected={selectedPlatforms} onChange={setSelectedPlatforms} />
+            </div>
+
+            <div className="flex justify-center">
+              <button
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+                className={`rounded-xl px-10 py-3 text-sm font-semibold text-white shadow-sm transition ${
+                  canSubmit
+                    ? "bg-blue-600 hover:bg-blue-700 active:bg-blue-800"
+                    : "cursor-not-allowed bg-gray-300 dark:bg-gray-600"
+                }`}
+              >
+                生成多平台预览
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Loading Step ── */}
+        {step === "loading" && (
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="mb-6 h-10 w-10 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">正在生成平台预览…</p>
+            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+              正在为 {selectedPlatforms.length} 个平台适配内容
+            </p>
+          </div>
+        )}
+
+        {/* ── Error Step ── */}
+        {step === "error" && (
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="mb-4 text-4xl">⚠️</div>
+            <p className="mb-2 text-sm font-semibold text-red-600 dark:text-red-400">
+              生成预览失败
+            </p>
+            <p className="mb-6 max-w-md text-center text-xs text-gray-500 dark:text-gray-400">
+              {errorMessage}
+            </p>
+            <button
+              onClick={handleReset}
+              className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              返回重试
+            </button>
+          </div>
+        )}
+
+        {/* ── Result Step ── */}
+        {step === "result" && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200">预览结果</h2>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {projectTitle} — 已为 {previews.length} 个平台生成预览
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              {previews.map((preview) => (
+                <PreviewCard key={preview.platform} preview={preview} />
+              ))}
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+              <h3 className="mb-4 text-base font-semibold text-gray-800 dark:text-gray-200">
+                Mock Publish
+              </h3>
+              <PlatformSelector selected={publishPlatforms} onChange={setPublishPlatforms} />
+              <div className="mt-5 flex justify-center">
+                <button
+                  onClick={handleMockPublish}
+                  disabled={isPublishing || publishPlatforms.length === 0}
+                  className={`rounded-xl px-8 py-2.5 text-sm font-semibold text-white shadow-sm transition ${
+                    isPublishing || publishPlatforms.length === 0
+                      ? "cursor-not-allowed bg-gray-300 dark:bg-gray-600"
+                      : "bg-gray-900 hover:bg-gray-800 active:bg-black dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white"
+                  }`}
+                >
+                  {isPublishing ? "正在 Mock Publish…" : "Mock Publish"}
+                </button>
+              </div>
+
+              {publishError && (
+                <p className="mt-3 text-center text-xs text-red-600 dark:text-red-400">
+                  {publishError}
+                </p>
+              )}
+
+              {publishResults.length > 0 && (
+                <div className="mt-5 space-y-3">
+                  {publishResults.map((result) => (
+                    <div
+                      key={result.platform}
+                      className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm dark:border-gray-700 dark:bg-gray-900"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-semibold text-gray-800 dark:text-gray-100">
+                          {result.platform_display_name}
+                        </span>
+                        <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                          {result.status}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                        {result.message}
+                      </p>
+                      {result.mock_url && (
+                        <code className="mt-2 block break-all rounded bg-white px-2 py-1 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                          {result.mock_url}
+                        </code>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={handleReset}
+                className="rounded-lg border border-gray-300 px-6 py-2 text-sm text-gray-600 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                ← 新建项目
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
