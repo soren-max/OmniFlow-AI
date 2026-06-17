@@ -8,7 +8,7 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 
 import pytest
-from api.app.main import app  # type: ignore[import-untyped]
+from api.app.main import app
 from httpx import ASGITransport, AsyncClient
 
 
