@@ -53,7 +53,7 @@ when the workflow expands beyond the deterministic preview skeleton.
 
 ## Intended Workflow (Future)
 
-When LangGraph is introduced, the Agent workflow will follow this sequence:
+When the full Agent workflow is introduced, it will follow this sequence:
 
 ```
 Source Content / Idea

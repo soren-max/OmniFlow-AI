@@ -11,8 +11,11 @@ from .project import (
     PublishProjectRequest,
     PublishProjectResponse,
 )
+from .trace import AgentRun, AgentStep, TraceStatus
 
 __all__ = [
+    "AgentRun",
+    "AgentStep",
     "ApiError",
     "ApiResponse",
     "ContentProjectResponse",
@@ -23,4 +26,5 @@ __all__ = [
     "ProjectPreviewItem",
     "PublishProjectRequest",
     "PublishProjectResponse",
+    "TraceStatus",
 ]

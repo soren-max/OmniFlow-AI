@@ -24,6 +24,10 @@ deterministic preview workflow skeleton and does not call a real LLM.
 Agent Run and Agent Step traces are stored in memory for the deterministic
 LangGraph workflow. They are not persisted to PostgreSQL yet.
 
+Agent Run and Agent Step endpoints are read-only. They expose in-memory trace
+records written by the deterministic LangGraph `agent-preview` workflow. They do
+not call real LLMs, publish to real platforms, or persist to PostgreSQL yet.
+
 Supported preview platforms:
 
 - `wechat` — WeChat Official Accounts / 微信公众号
@@ -62,6 +66,9 @@ The API will follow RESTful conventions:
 |--------|------|-------------|
 | GET | /api/runs/{run_id} | Get one in-memory Agent Run trace record |
 | GET | /api/runs/{run_id}/steps | List in-memory Agent Step records for a run |
+
+Trace records are currently created by the deterministic LangGraph preview runner
+and stored in memory. Future work should move them to PostgreSQL.
 
 ### Create Project — `POST /api/projects`
 
@@ -126,6 +133,11 @@ The API will follow RESTful conventions:
 Only `mode: "mock"` is supported. `mode: "real"` returns
 `REAL_PUBLISH_NOT_SUPPORTED` because real publishing requires future Human Review,
 explicit user authorization, and secure platform credentials.
+
+`GET /api/runs/{run_id}` returns an `AgentRun` record. `GET /api/runs/{run_id}/steps`
+returns the ordered `AgentStep` records for that run. Both use the standard response
+envelope. Preview and Mock Publish do not write trace records yet; a later LangGraph
+workflow PR should map those operations to Agent Step records.
 
 ### Get Project — `GET /api/projects/{id}`
 

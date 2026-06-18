@@ -101,8 +101,15 @@ intake → platform strategy → preview generation → finish. The workflow is 
 does not call a real LLM, and still uses `PlatformAdapter` as the platform adaptation
 boundary. Each workflow execution creates an in-memory Agent Run record, and each
 node writes an Agent Step record with status, input/output snapshots, latency, and
-errors. Real publishing, Human Review, persistent trace storage, and Evaluation
-remain future work.
+errors.
+
+### Agent Trace Foundation
+
+The backend includes AgentRun and AgentStep data models plus an in-memory
+`TraceService`. The LangGraph preview skeleton records node execution traces for
+the experimental `agent-preview` path. Regular Preview and Mock Publish remain
+direct adapter service calls. Real publishing, Human Review, Evaluation reports,
+and production PostgreSQL trace persistence remain future work.
 
 ---
 
@@ -400,7 +407,7 @@ The following features are **explicitly out of scope** for the current stage:
 | **Phase 1** | Repository bootstrap and adapter-driven preview | ✅ **Done** |
 | **Phase 2** | Mock Publish and API schema stabilization | ✅ **Done** |
 | **Phase 3** | LangGraph preview skeleton and in-memory Agent Run Trace | ✅ **In progress** |
-| **Phase 4** | Human Review and persistent workflow orchestration | 🔜 Planned |
+| **Phase 4** | Human Review and traced workflow integration | 🔜 Planned |
 | **Phase 5** | Evaluation and observability | 🔜 Planned |
 | **Phase 6** | Real publishing integrations with explicit approval | 🔜 Planned |
 
@@ -414,7 +421,7 @@ ContentOps Agent is designed as a **demonstration-quality project** for AI Agent
 
 The codebase is structured for Agent workflow integration from day one:
 
-- `agents/` module contains the deterministic LangGraph preview skeleton.
+- `agents/` module contains a deterministic LangGraph preview skeleton; full AI orchestration is future work.
 - `adapters/` module provides the tool-calling interface that agents will invoke.
 - `schemas/` holds Pydantic models that define the input/output contract for every Agent node.
 - `services/` contains business logic that can be called by both API routes and Agent nodes.
@@ -453,7 +460,7 @@ The `evals/` directory at the project root and the `evaluators/` backend module 
 - What the current stage allows and forbids.
 - The expected repository structure and module responsibilities.
 - Coding standards, testing rules, and commit conventions.
-- Future scope — preventing premature implementation of features like LangGraph, real publishing, or evaluation.
+- Future scope — preventing premature expansion beyond the current LangGraph skeleton into real publishing, production LLM calls, or evaluation.
 
 This document serves as the single source of truth that aligns human developers and AI assistants on the same development rules.
 

@@ -9,12 +9,14 @@ from fastapi import APIRouter, HTTPException
 
 router = APIRouter(prefix="/api/runs", tags=["agent-runs"])
 
+_service = trace_service
+
 
 @router.get("/{run_id}", response_model=ApiResponse[AgentRun])
 async def get_run(run_id: str) -> ApiResponse[AgentRun]:
     """Return an Agent Run trace."""
     try:
-        return ok(trace_service.get_run(run_id))
+        return ok(_service.get_run(run_id))
     except AgentRunNotFoundError:
         raise HTTPException(
             status_code=404,
@@ -30,7 +32,7 @@ async def get_run(run_id: str) -> ApiResponse[AgentRun]:
 async def list_run_steps(run_id: str) -> ApiResponse[list[AgentStep]]:
     """Return Agent Step traces for a run."""
     try:
-        return ok(trace_service.list_steps_by_run(run_id))
+        return ok(_service.list_steps_by_run(run_id))
     except AgentRunNotFoundError:
         raise HTTPException(
             status_code=404,

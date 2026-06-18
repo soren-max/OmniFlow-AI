@@ -1,8 +1,10 @@
 # Architecture Overview
 
-## Current Stage (Phase 1-2)
+## Current Stage (Phase 3: Deterministic LangGraph Skeleton)
 
-The project is in **Phase 1-2** (Repository Bootstrap + Mock Publish). The adapter-driven preview and mock publish pipeline is operational:
+The project is in **Phase 3** with Repository Bootstrap, adapter-driven Preview,
+Mock Publish, Agent Trace foundation, and a deterministic LangGraph preview skeleton.
+The adapter-driven preview and mock publish pipeline is operational:
 
 - FastAPI backend with a health check endpoint.
 - Next.js frontend with content input and multi-platform preview UI.
@@ -69,7 +71,7 @@ implementations exist yet. The current publishing path is mock-only.
 - **Registry-based platform lookup**: New platforms are added by creating a `PlatformAdapter` implementation and registering it in `apps/api/app/adapters/registry.py`.
 - **Deterministic workflow first**: LangGraph is used for a small preview workflow skeleton without LLM calls or provider SDKs.
 - **Centralized trace service**: Agent Run and Agent Step lifecycle transitions live in `apps/api/app/telemetry/service.py`; workflow nodes do not persist trace records directly.
-- **Human-in-the-loop**: Publishing requires explicit approval before execution.
+- **Human-in-the-loop planned**: Real publishing will require explicit approval before execution, but the approval workflow is not implemented yet.
 
 ## LangGraph Workflow Skeleton
 
