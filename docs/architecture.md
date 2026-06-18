@@ -1,8 +1,10 @@
 # Architecture Overview
 
-## Current Stage (Phase 1-2)
+## Current Stage (Phase 3: Deterministic LangGraph Skeleton)
 
-The project is in **Phase 1-2** (Repository Bootstrap + Mock Publish). The adapter-driven preview and mock publish pipeline is operational:
+The project is in **Phase 3** with Repository Bootstrap, adapter-driven Preview,
+Mock Publish, Agent Trace foundation, and a deterministic LangGraph preview skeleton.
+The adapter-driven preview and mock publish pipeline is operational:
 
 - FastAPI backend with a health check endpoint.
 - Next.js frontend with content input and multi-platform preview UI.
@@ -13,6 +15,7 @@ The project is in **Phase 1-2** (Repository Bootstrap + Mock Publish). The adapt
 - **Adapter registry** for platform → class resolution.
 - Shared adapter data types: Platform, PlatformContent, ValidationResult, PublishResult, etc.
 - **Deterministic LangGraph preview workflow skeleton** in `apps/api/app/agents/`.
+- **Agent trace data models and service layer** for in-memory Agent Run / Agent Step records.
 
 No LLM-backed Agent workflow, database models, or real platform publish implementations exist yet.
 The current publishing path is mock-only.
@@ -55,7 +58,7 @@ The current publishing path is mock-only.
 ├─────────────────────┤
 │  Evaluators         │  Quality evaluation (future)
 ├─────────────────────┤
-│  Telemetry          │  Logging, tracing, metrics (future)
+│  Telemetry          │  Agent run/step trace records now; logging and metrics later
 └─────────────────────┘
 ```
 
@@ -67,7 +70,8 @@ The current publishing path is mock-only.
 - **Adapter pattern**: Platform-specific logic is isolated behind a common interface.
 - **Registry-based platform lookup**: New platforms are added by creating a `PlatformAdapter` implementation and registering it in `apps/api/app/adapters/registry.py`.
 - **Deterministic workflow first**: LangGraph is used for a small preview workflow skeleton without LLM calls or provider SDKs.
-- **Human-in-the-loop**: Publishing requires explicit approval before execution.
+- **Trace boundary first**: Agent Run and Agent Step records live behind an in-memory repository and `AgentTraceService`; they are not yet connected to the LangGraph skeleton.
+- **Human-in-the-loop planned**: Real publishing will require explicit approval before execution, but the approval workflow is not implemented yet.
 
 ## LangGraph Workflow Skeleton
 
@@ -80,6 +84,22 @@ The current Agent layer contains a minimal `StateGraph` for content preview:
 
 The runner in `apps/api/app/agents/runner.py` hides LangGraph internals from future
 service callers. Existing preview and mock publish services remain intact.
+
+## Agent Trace Data Model
+
+The current trace implementation is intentionally small and is not connected to the
+LangGraph preview skeleton yet. It provides the data structures and service boundary
+needed by future traced workflow nodes:
+
+- `AgentRun` represents one future Agent workflow execution for a project.
+- `AgentStep` represents one future node execution within a run.
+- Both records track status, input/output snapshots, errors, timestamps, and latency.
+- `AgentStep.tool_calls` can record tool call metadata once tools are introduced.
+- `TraceRepository` is in-memory only and will be replaced by database persistence later.
+
+Future trace integration will create one Agent Run per workflow and write one Agent
+Step per node. Existing preview generation and Mock Publish are not yet recorded in
+trace, but they are expected to become traced steps once orchestration is added.
 
 ## PlatformAdapter Flow
 

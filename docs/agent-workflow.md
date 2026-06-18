@@ -17,6 +17,16 @@ Today the product still uses the existing `POST /api/projects/{id}/preview` API 
 the main preview path. The experimental `POST /api/projects/{id}/agent-preview`
 endpoint calls the LangGraph runner and returns workflow state for validation.
 
+The repository now includes foundational Trace data models and service methods:
+
+- Agent Run records describe one future workflow execution.
+- Agent Step records describe one future node execution.
+- The trace repository is in-memory only.
+- The trace service supports create, finish, fail, and list operations.
+
+These trace records are not connected to the LangGraph skeleton yet. They define the
+execution trace boundary that future workflow nodes will use.
+
 The PlatformAdapter registry remains the core platform abstraction. The workflow
 preview node resolves adapters through the registry and does not hardcode
 platform-specific adapter behavior.
@@ -24,9 +34,19 @@ platform-specific adapter behavior.
 Preview and Mock Publish will later be connected to Agent Run Trace. Human Review
 and Evaluation remain future work.
 
+## Trace Recording Plan
+
+When trace integration is added, each workflow invocation will create one Agent Run.
+Each LangGraph node will create one Agent Step when it starts, then finish or fail
+that step with output snapshots, tool calls, latency, and error details.
+
+Preview generation and Mock Publish are still direct service calls today. In a later
+workflow PR, they should be wrapped as traced nodes so preview and mock publish results
+are captured inside Agent Step records.
+
 ## Intended Workflow (Future)
 
-When LangGraph is introduced, the Agent workflow will follow this sequence:
+When the full Agent workflow is introduced, it will follow this sequence:
 
 ```
 Source Content / Idea

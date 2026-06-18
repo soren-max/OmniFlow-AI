@@ -73,6 +73,9 @@ All adapters implement the same `PlatformAdapter` abstract interface — adding 
 │  POST /api/projects/{id}/agent-preview                          │
 │    → LangGraph deterministic preview workflow                   │
 │    → PlatformAdapterRegistry.get_adapter(platform)              │
+│                                                                 │
+│  GET /api/runs/{run_id} and /steps                              │
+│    → AgentTraceService (in-memory Agent Run / Step records)     │
 └──────────────┬──────────────────────────────────┬───────────────┘
                │                                  │
                ▼                                  ▼
@@ -94,8 +97,15 @@ Create project → Select platforms → Generate previews → Mock publish
 The backend includes a minimal LangGraph workflow for experimental preview generation:
 intake → platform strategy → preview generation → finish. The workflow is deterministic,
 does not call a real LLM, and still uses `PlatformAdapter` as the platform adaptation
-boundary. Real publishing, Human Review, Agent Run Trace integration, and Evaluation
-remain future work.
+boundary.
+
+### Agent Trace Foundation
+
+The backend includes foundational Agent Run and Agent Step data models plus an
+in-memory `AgentTraceService`. The LangGraph preview skeleton is not yet connected
+to Agent Run / Agent Step persistence, and Preview / Mock Publish will later be
+wrapped as traced steps. Real publishing, Human Review, Evaluation reports, and
+production database persistence remain future work.
 
 ---
 
@@ -358,7 +368,7 @@ The following features are **explicitly out of scope** for the current stage:
 |------------|--------|
 | Real platform publishing | ❌ Not implemented. `adapter.publish()` raises `NotImplementedError`. |
 | LangGraph workflow orchestration | ✅ Minimal deterministic preview skeleton only; no LLM calls. |
-| Agent Run Trace | ❌ No run/step/tool-call persistence. |
+| Agent Run Trace | ✅ Basic in-memory run/step models and service exist; not yet connected to LangGraph. |
 | Human Review workflow | ❌ No approval/rejection flow before publish. |
 | Evaluation Reports | ❌ No quality scoring, consistency checks, or evaluation metrics. |
 | Authentication / Authorization | ❌ No user system, API keys, or session management. |
@@ -373,8 +383,8 @@ The following features are **explicitly out of scope** for the current stage:
 |-------|-------|--------|
 | **Phase 1** | Repository bootstrap and adapter-driven preview | ✅ **Done** |
 | **Phase 2** | Mock Publish and API schema stabilization | ✅ **Done** |
-| **Phase 3** | Agent Run Trace and Human Review | 🔜 Planned |
-| **Phase 4** | LangGraph workflow orchestration | 🔜 Planned |
+| **Phase 3** | Agent Run Trace foundation and deterministic LangGraph skeleton | ✅ **In progress** |
+| **Phase 4** | Human Review and traced workflow integration | 🔜 Planned |
 | **Phase 5** | Evaluation and observability | 🔜 Planned |
 | **Phase 6** | Real publishing integrations with explicit approval | 🔜 Planned |
 
@@ -388,7 +398,7 @@ ContentOps Agent is designed as a **demonstration-quality project** for AI Agent
 
 The codebase is structured for Agent workflow integration from day one:
 
-- `agents/` module reserved for LangGraph orchestration (future).
+- `agents/` module contains a deterministic LangGraph preview skeleton; full AI orchestration is future work.
 - `adapters/` module provides the tool-calling interface that agents will invoke.
 - `schemas/` holds Pydantic models that define the input/output contract for every Agent node.
 - `services/` contains business logic that can be called by both API routes and Agent nodes.
@@ -427,7 +437,7 @@ The `evals/` directory at the project root and the `evaluators/` backend module 
 - What the current stage allows and forbids.
 - The expected repository structure and module responsibilities.
 - Coding standards, testing rules, and commit conventions.
-- Future scope — preventing premature implementation of features like LangGraph, real publishing, or evaluation.
+- Future scope — preventing premature expansion beyond the current LangGraph skeleton into real publishing, production LLM calls, or evaluation.
 
 This document serves as the single source of truth that aligns human developers and AI assistants on the same development rules.
 

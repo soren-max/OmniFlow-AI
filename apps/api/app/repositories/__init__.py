@@ -5,8 +5,10 @@ Will be replaced with SQLAlchemy + PostgreSQL in a future stage.
 """
 
 from .project_repository import ProjectRecord, ProjectRepository
+from .trace_repository import TraceRepository
 
 __all__ = [
     "ProjectRecord",
     "ProjectRepository",
+    "TraceRepository",
 ]
