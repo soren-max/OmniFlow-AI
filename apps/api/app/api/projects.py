@@ -22,6 +22,7 @@ from api.app.services.project_service import (
     AdapterExecutionError,
     ContentProjectService,
     InvalidPlatformError,
+    ProjectNotApprovedError,
     ProjectNotFoundError,
     RealPublishNotSupportedError,
     UnsupportedPublishModeError,
@@ -148,6 +149,38 @@ async def generate_agent_preview(
     return ok(dict(state))
 
 
+@router.post("/{project_id}/review/approve", response_model=ApiResponse[ContentProjectResponse])
+async def approve_project(project_id: str) -> ApiResponse[dict[str, Any]]:
+    """Approve a reviewed project for mock publish."""
+    try:
+        return ok(_service.approve_project(project_id))
+    except ProjectNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "PROJECT_NOT_FOUND",
+                "message": f"Project not found: {project_id}",
+                "details": {"project_id": project_id},
+            },
+        )
+
+
+@router.post("/{project_id}/review/reject", response_model=ApiResponse[ContentProjectResponse])
+async def reject_project(project_id: str) -> ApiResponse[dict[str, Any]]:
+    """Reject a reviewed project and block mock publish."""
+    try:
+        return ok(_service.reject_project(project_id))
+    except ProjectNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "PROJECT_NOT_FOUND",
+                "message": f"Project not found: {project_id}",
+                "details": {"project_id": project_id},
+            },
+        )
+
+
 @router.post("/{project_id}/publish", response_model=ApiResponse[PublishProjectResponse])
 async def publish_project(
     project_id: str,
@@ -187,6 +220,19 @@ async def publish_project(
                 "code": "UNSUPPORTED_PUBLISH_MODE",
                 "message": str(exc),
                 "details": {"mode": exc.mode, "supported_modes": ["mock"]},
+            },
+        )
+    except ProjectNotApprovedError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "PROJECT_REVIEW_REQUIRED",
+                "message": str(exc),
+                "details": {
+                    "project_id": exc.project_id,
+                    "status": exc.status,
+                    "required_status": "approved",
+                },
             },
         )
     except InvalidPlatformError as exc:

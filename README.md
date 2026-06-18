@@ -23,6 +23,7 @@ Manually adapting content for each platform is time-consuming, error-prone, and 
 - Five platform adapters          ✅
 - Adapter registry                ✅
 - Mock publish                    ✅
+- Human Review API gate           ✅
 - LangGraph workflow skeleton     ✅
 - Agent Run / Step trace records  ✅
 - PostgreSQL persistence          ✅
@@ -90,7 +91,7 @@ All adapters implement the same `PlatformAdapter` abstract interface — adding 
 ### Current Workflow
 
 ```
-Create project → Select platforms → Generate previews → Mock publish
+Create project → Select platforms → Generate previews → Human review → Mock publish
      ▲                                       │
      └────── (view results, then publish) ────┘
 ```
@@ -111,7 +112,16 @@ The backend includes AgentRun and AgentStep data models plus a database-backed
 skeleton records node execution traces for the experimental `agent-preview` path.
 Projects, platform preview results, mock publish results, Agent Runs, and Agent
 Steps are persisted through SQLAlchemy and Alembic-managed PostgreSQL tables.
-Real publishing, Human Review, and Evaluation reports remain future work.
+Real publishing, full graph-native Human Review, and Evaluation reports remain
+future work.
+
+### Human Review Gate
+
+The backend includes a Human Review API gate before Mock Publish. Preview
+generation moves a project to `pending`; reviewers can approve or reject the
+project through API endpoints. Mock Publish requires `approved`, and `rejected`
+projects are blocked. This is currently an API-level safety boundary; a future
+LangGraph PR can model it as a human-in-the-loop workflow node.
 
 ---
 
@@ -396,7 +406,7 @@ The following features are **explicitly out of scope** for the current stage:
 | Real platform publishing | ❌ Not implemented. `adapter.publish()` raises `NotImplementedError`. |
 | LangGraph workflow orchestration | ✅ Minimal deterministic preview skeleton only; no LLM calls. |
 | Agent Run Trace | ✅ PostgreSQL-backed Agent Run and Agent Step records for the LangGraph preview skeleton. |
-| Human Review workflow | ❌ No approval/rejection flow before publish. |
+| Human Review workflow | ✅ API-level approve/reject gate before Mock Publish. Full LangGraph human-in-the-loop is planned. |
 | Evaluation Reports | ❌ No quality scoring, consistency checks, or evaluation metrics. |
 | Authentication / Authorization | ❌ No user system, API keys, or session management. |
 | Database persistence | ✅ Projects, previews, mock publish results, Agent Runs, and Agent Steps are persisted in PostgreSQL. |
@@ -444,7 +454,7 @@ This repo shows how to design a tool interface (`PlatformAdapter`), register too
 
 The API design anticipates human approval:
 
-- `POST /api/projects/{id}/publish` requires an explicit `mode` parameter. Real publishing (`mode: "real"`) is structurally possible but currently raises `NotImplementedError` — enforced until human review is implemented.
+- `POST /api/projects/{id}/publish` requires an explicit `mode` parameter and an approved project. Real publishing (`mode: "real"`) is structurally possible but currently raises `NotImplementedError`.
 - Preview responses include validation warnings that inform review decisions.
 
 ### Evaluation-Ready Design

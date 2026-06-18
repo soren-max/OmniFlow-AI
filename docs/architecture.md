@@ -18,10 +18,11 @@ The adapter-driven preview and mock publish pipeline is operational:
 - **PostgreSQL-backed Agent Run and Agent Step trace records** in `apps/api/app/telemetry/`.
 - **SQLAlchemy repositories and Alembic migrations** for projects, platform preview
   results, mock publish results, Agent Runs, and Agent Steps.
+- **Human Review API gate** using project statuses `pending`, `approved`, and
+  `rejected` before Mock Publish.
 
-No LLM-backed Agent workflow, Human Review workflow, Evaluation report, or real
-platform publish implementations exist yet. The current publishing path is
-mock-only.
+No LLM-backed Agent workflow, Evaluation report, or real platform publish
+implementations exist yet. The current publishing path is mock-only.
 
 ## Intended Architecture (Future)
 
@@ -78,7 +79,9 @@ mock-only.
   workflow nodes do not persist trace records directly.
 - **Repository-backed persistence**: services call repositories that write core records
   through SQLAlchemy models; routes stay thin and do not perform database queries.
-- **Human-in-the-loop planned**: Real publishing will require explicit approval before execution, but the approval workflow is not implemented yet.
+- **Human Review API gate first**: Preview generation moves a project to
+  `pending`; approve/reject endpoints update the review status; Mock Publish
+  requires `approved`. A LangGraph human-in-the-loop node is future work.
 
 ## LangGraph Workflow Skeleton
 
@@ -125,7 +128,10 @@ Current preview and mock publish execution are adapter-driven:
 2. The service resolves each identifier to the `Platform` enum.
 3. The adapter registry returns the matching adapter.
 4. For preview, the adapter transforms content, validates it, and builds a mock preview.
-5. For mock publish, the service calls `adapter.mock_publish` and returns simulated results.
+5. Preview completion sets the project review status to `pending`.
+6. A reviewer must approve the project through the Human Review API gate.
+7. For mock publish, the service verifies `approved`, calls `adapter.mock_publish`,
+   and returns simulated results.
 
 Adding a platform should stay localized to the adapter layer: add a concrete adapter, add the platform enum value, register the adapter, and update tests and UI platform options. Business services should continue resolving adapters through the registry instead of branching on platform names.
 
@@ -137,7 +143,7 @@ credential handling, and trace logging are in place.
 
 - LLM-backed LangGraph agent orchestration.
 - **Real platform API integration** (mock adapters and mock publish are done).
-- Human Review workflow and ReviewRecord persistence.
+- Full LangGraph human-in-the-loop workflow and ReviewRecord persistence.
 - Evaluation system.
 - EvaluationReport persistence.
 - OpenTelemetry instrumentation.
