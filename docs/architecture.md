@@ -73,7 +73,9 @@ mock-only.
 - **Adapter pattern**: Platform-specific logic is isolated behind a common interface.
 - **Registry-based platform lookup**: New platforms are added by creating a `PlatformAdapter` implementation and registering it in `apps/api/app/adapters/registry.py`.
 - **Deterministic workflow first**: LangGraph is used for a small preview workflow skeleton without LLM calls or provider SDKs.
-- **Centralized trace service**: Agent Run and Agent Step lifecycle transitions live in `apps/api/app/telemetry/service.py`; workflow nodes do not persist trace records directly.
+- **Centralized telemetry trace service**: Agent Run and Agent Step schemas,
+  repository access, and lifecycle transitions live under `apps/api/app/telemetry/`;
+  workflow nodes do not persist trace records directly.
 - **Repository-backed persistence**: services call repositories that write core records
   through SQLAlchemy models; routes stay thin and do not perform database queries.
 - **Human-in-the-loop planned**: Real publishing will require explicit approval before execution, but the approval workflow is not implemented yet.
@@ -100,6 +102,10 @@ Each wrapped node creates one Agent Step and records:
 - Error messages when a node or run fails.
 - Step latency and total run latency.
 - Tool call metadata placeholder fields.
+
+Trace status values are standardized as `running`, `completed`, and `failed`.
+The canonical implementation is `apps/api/app/telemetry/`; older service/schema
+paths should not be used for new workflow or API code.
 
 Trace records are stored in PostgreSQL through the trace repository. They are available
 through `GET /api/runs/{run_id}` and `GET /api/runs/{run_id}/steps`. The

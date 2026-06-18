@@ -22,9 +22,11 @@ preview node resolves adapters through the registry and does not hardcode
 platform-specific adapter behavior.
 
 Each `agent-preview` execution now creates a PostgreSQL-backed Agent Run trace. Each
-LangGraph node is wrapped by the trace layer and writes an Agent Step with status,
-input/output snapshots, latency, and errors. Human Review, Evaluation, and real
-publishing remain future work.
+LangGraph node is wrapped by the telemetry trace layer and writes an Agent Step
+with status, input/output snapshots, latency, and errors. Trace schemas,
+repository access, and service transitions are centralized in
+`apps/api/app/telemetry/`. Human Review, Evaluation, and real publishing remain
+future work.
 
 ## Current Trace Flow
 
@@ -43,6 +45,7 @@ intake → platform_strategy → preview_generation → finish
 TraceService.finish_run(...) or TraceService.fail_run(...)
 ```
 
+Trace status values are standardized as `running`, `completed`, and `failed`.
 The runner adds `run_id` to workflow state. API callers can inspect records with:
 
 - `GET /api/runs/{run_id}`

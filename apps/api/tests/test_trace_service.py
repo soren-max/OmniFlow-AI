@@ -8,10 +8,10 @@ from typing import Any, cast
 import pytest
 from api.app.api.runs import _service as api_trace_service
 from api.app.main import app
-from api.app.repositories.trace_repository import TraceRepository
-from api.app.schemas.trace import TraceStatus
-from api.app.services.trace_service import (
-    AgentTraceService,
+from api.app.telemetry.repository import TraceRepository
+from api.app.telemetry.schemas import TraceStatus
+from api.app.telemetry.service import (
+    TraceService,
     TraceStatusTransitionError,
 )
 from httpx import ASGITransport, AsyncClient, Response
@@ -27,9 +27,9 @@ def _unwrap_success(response: Response) -> dict[str, Any]:
 
 
 @pytest.fixture
-def trace_service(db_session_factory: sessionmaker[Session]) -> AgentTraceService:
+def trace_service(db_session_factory: sessionmaker[Session]) -> TraceService:
     """Create an isolated trace service for unit tests."""
-    return AgentTraceService(repository=TraceRepository(session_factory=db_session_factory))
+    return TraceService(repository=TraceRepository(session_factory=db_session_factory))
 
 
 @pytest.fixture
@@ -42,8 +42,8 @@ async def client() -> AsyncGenerator[AsyncClient, None]:
     api_trace_service._repository.clear()
 
 
-class TestAgentTraceService:
-    def test_create_run(self, trace_service: AgentTraceService) -> None:
+class TestTraceService:
+    def test_create_run(self, trace_service: TraceService) -> None:
         """Creating a run should store a running trace record."""
         run = trace_service.create_run(
             project_id="project-1",
@@ -56,12 +56,12 @@ class TestAgentTraceService:
         assert run.workflow_name == "content_preview"
         assert run.status == TraceStatus.RUNNING
         assert run.input_snapshot == {"platforms": ["wechat"]}
-        assert run.output_snapshot == {}
+        assert run.output_snapshot is None
         assert run.error_message is None
         assert run.finished_at is None
         assert run.total_latency_ms is None
 
-    def test_create_step(self, trace_service: AgentTraceService) -> None:
+    def test_create_step(self, trace_service: TraceService) -> None:
         """Creating a step should attach it to an existing run."""
         run = trace_service.create_run("project-1", "content_preview")
         step = trace_service.create_step(
@@ -78,7 +78,7 @@ class TestAgentTraceService:
         assert step.input_snapshot == {"platform": "wechat"}
         assert step.tool_calls == [{"name": "adapter.build_preview"}]
 
-    def test_finish_run(self, trace_service: AgentTraceService) -> None:
+    def test_finish_run(self, trace_service: TraceService) -> None:
         """Finishing a run should capture output and latency."""
         run = trace_service.create_run("project-1", "content_preview")
 
@@ -87,14 +87,14 @@ class TestAgentTraceService:
             output_snapshot={"preview_count": 5},
         )
 
-        assert finished.status == TraceStatus.SUCCEEDED
+        assert finished.status == TraceStatus.COMPLETED
         assert finished.output_snapshot == {"preview_count": 5}
         assert finished.error_message is None
         assert finished.finished_at is not None
         assert finished.total_latency_ms is not None
         assert finished.total_latency_ms >= 0
 
-    def test_fail_run(self, trace_service: AgentTraceService) -> None:
+    def test_fail_run(self, trace_service: TraceService) -> None:
         """Failing a run should capture the error message and latency."""
         run = trace_service.create_run("project-1", "content_preview")
 
@@ -106,7 +106,7 @@ class TestAgentTraceService:
         assert failed.total_latency_ms is not None
         assert failed.total_latency_ms >= 0
 
-    def test_finish_step(self, trace_service: AgentTraceService) -> None:
+    def test_finish_step(self, trace_service: TraceService) -> None:
         """Finishing a step should capture output, tool calls, and latency."""
         run = trace_service.create_run("project-1", "content_preview")
         step = trace_service.create_step(run.run_id, "preview_generation")
@@ -117,7 +117,7 @@ class TestAgentTraceService:
             tool_calls=[{"name": "adapter.validate_content", "status": "ok"}],
         )
 
-        assert finished.status == TraceStatus.SUCCEEDED
+        assert finished.status == TraceStatus.COMPLETED
         assert finished.output_snapshot == {"status": "ok"}
         assert finished.tool_calls == [{"name": "adapter.validate_content", "status": "ok"}]
         assert finished.error_message is None
@@ -125,7 +125,7 @@ class TestAgentTraceService:
         assert finished.latency_ms is not None
         assert finished.latency_ms >= 0
 
-    def test_fail_step(self, trace_service: AgentTraceService) -> None:
+    def test_fail_step(self, trace_service: TraceService) -> None:
         """Failing a step should capture the step error."""
         run = trace_service.create_run("project-1", "content_preview")
         step = trace_service.create_step(run.run_id, "preview_generation")
@@ -138,7 +138,7 @@ class TestAgentTraceService:
         assert failed.latency_ms is not None
         assert failed.latency_ms >= 0
 
-    def test_list_steps_by_run(self, trace_service: AgentTraceService) -> None:
+    def test_list_steps_by_run(self, trace_service: TraceService) -> None:
         """Steps should be queryable by their run id."""
         run = trace_service.create_run("project-1", "content_preview")
         other_run = trace_service.create_run("project-2", "content_preview")
@@ -152,7 +152,7 @@ class TestAgentTraceService:
 
     def test_status_cannot_transition_after_finish(
         self,
-        trace_service: AgentTraceService,
+        trace_service: TraceService,
     ) -> None:
         """Completed records cannot be completed again."""
         run = trace_service.create_run("project-1", "content_preview")

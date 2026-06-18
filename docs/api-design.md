@@ -25,8 +25,10 @@ LangGraph is present only as a deterministic preview workflow skeleton and does
 not call a real LLM.
 
 Agent Run and Agent Step endpoints are read-only. They expose persisted trace
-records written by the deterministic LangGraph `agent-preview` workflow. They do
-not call real LLMs or publish to real platforms.
+records written by the deterministic LangGraph `agent-preview` workflow. Trace
+schemas, repository access, and lifecycle transitions are centralized in
+`apps/api/app/telemetry/`; status values are `running`, `completed`, and `failed`.
+They do not call real LLMs or publish to real platforms.
 
 Supported preview platforms:
 
@@ -67,8 +69,8 @@ The API will follow RESTful conventions:
 | GET | /api/runs/{run_id} | Get one persisted Agent Run trace record |
 | GET | /api/runs/{run_id}/steps | List persisted Agent Step records for a run |
 
-Trace records are currently created by the deterministic LangGraph preview runner
-and stored in PostgreSQL.
+Trace records are currently created by the deterministic LangGraph preview runner,
+managed by the telemetry module, and stored in PostgreSQL.
 
 ### Create Project — `POST /api/projects`
 

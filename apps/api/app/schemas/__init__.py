@@ -1,5 +1,7 @@
 """Pydantic request and response schemas."""
 
+from api.app.telemetry.schemas import AgentRun, AgentStep, TraceStatus
+
 from .common import ApiError, ApiResponse
 from .project import (
     ContentProjectResponse,
@@ -11,7 +13,6 @@ from .project import (
     PublishProjectRequest,
     PublishProjectResponse,
 )
-from .trace import AgentRun, AgentStep, TraceStatus
 
 __all__ = [
     "AgentRun",

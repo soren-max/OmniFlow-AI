@@ -101,17 +101,17 @@ The backend includes a minimal LangGraph workflow for experimental preview gener
 intake → platform strategy → preview generation → finish. The workflow is deterministic,
 does not call a real LLM, and still uses `PlatformAdapter` as the platform adaptation
 boundary. Each workflow execution creates a PostgreSQL-backed Agent Run record, and each
-node writes an Agent Step record with status, input/output snapshots, latency, and
-errors.
+node writes an Agent Step record with `running`, `completed`, or `failed` status,
+input/output snapshots, latency, and errors.
 
 ### Agent Trace Foundation
 
 The backend includes AgentRun and AgentStep data models plus a database-backed
-`TraceService`. The LangGraph preview skeleton records node execution traces for
-the experimental `agent-preview` path. Projects, platform preview results, mock
-publish results, Agent Runs, and Agent Steps are persisted through SQLAlchemy and
-Alembic-managed PostgreSQL tables. Real publishing, Human Review, and Evaluation
-reports remain future work.
+`TraceService` centralized in `apps/api/app/telemetry/`. The LangGraph preview
+skeleton records node execution traces for the experimental `agent-preview` path.
+Projects, platform preview results, mock publish results, Agent Runs, and Agent
+Steps are persisted through SQLAlchemy and Alembic-managed PostgreSQL tables.
+Real publishing, Human Review, and Evaluation reports remain future work.
 
 ---
 
