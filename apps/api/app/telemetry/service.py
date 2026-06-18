@@ -28,6 +28,15 @@ class AgentStepNotFoundError(LookupError):
         super().__init__(f"Agent step not found: {step_id}")
 
 
+class TraceStatusTransitionError(ValueError):
+    """Raised when a completed or failed trace is updated again."""
+
+    def __init__(self, record_id: str, status: TraceStatus) -> None:
+        self.record_id = record_id
+        self.status = status
+        super().__init__(f"Trace record {record_id} cannot transition from {status}")
+
+
 class TraceService:
     """Manage trace lifecycle transitions for LangGraph workflows."""
 
@@ -56,13 +65,14 @@ class TraceService:
     def finish_run(
         self,
         run_id: str,
-        output_snapshot: Mapping[str, Any],
+        output_snapshot: Mapping[str, Any] | None = None,
     ) -> AgentRun:
         """Mark an Agent Run as completed."""
         run = self.get_run(run_id)
+        self._ensure_running(run.run_id, run.status)
         finished_at = datetime.now(timezone.utc)
         run.status = TraceStatus.COMPLETED
-        run.output_snapshot = self._safe_snapshot(output_snapshot)
+        run.output_snapshot = self._safe_snapshot(output_snapshot or {})
         run.error_message = None
         run.finished_at = finished_at
         run.total_latency_ms = self._latency_ms(run.started_at, finished_at)
@@ -76,6 +86,7 @@ class TraceService:
     ) -> AgentRun:
         """Mark an Agent Run as failed."""
         run = self.get_run(run_id)
+        self._ensure_running(run.run_id, run.status)
         finished_at = datetime.now(timezone.utc)
         run.status = TraceStatus.FAILED
         run.output_snapshot = (
@@ -118,14 +129,15 @@ class TraceService:
     def finish_step(
         self,
         step_id: str,
-        output_snapshot: Mapping[str, Any],
+        output_snapshot: Mapping[str, Any] | None = None,
         tool_calls: list[dict[str, Any]] | None = None,
     ) -> AgentStep:
         """Mark an Agent Step as completed."""
         step = self._get_step(step_id)
+        self._ensure_running(step.step_id, step.status)
         finished_at = datetime.now(timezone.utc)
         step.status = TraceStatus.COMPLETED
-        step.output_snapshot = self._safe_snapshot(output_snapshot)
+        step.output_snapshot = self._safe_snapshot(output_snapshot or {})
         if tool_calls is not None:
             step.tool_calls = tool_calls
         step.error_message = None
@@ -141,6 +153,7 @@ class TraceService:
     ) -> AgentStep:
         """Mark an Agent Step as failed."""
         step = self._get_step(step_id)
+        self._ensure_running(step.step_id, step.status)
         finished_at = datetime.now(timezone.utc)
         step.status = TraceStatus.FAILED
         step.output_snapshot = (
@@ -169,6 +182,11 @@ class TraceService:
     @staticmethod
     def _latency_ms(started_at: datetime, finished_at: datetime) -> int:
         return max(0, int((finished_at - started_at).total_seconds() * 1000))
+
+    @staticmethod
+    def _ensure_running(record_id: str, status: TraceStatus) -> None:
+        if status != TraceStatus.RUNNING:
+            raise TraceStatusTransitionError(record_id, status)
 
     @staticmethod
     def _safe_snapshot(snapshot: Mapping[str, Any]) -> dict[str, Any]:

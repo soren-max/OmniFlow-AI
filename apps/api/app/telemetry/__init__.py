@@ -5,6 +5,7 @@ from .service import (
     AgentRunNotFoundError,
     AgentStepNotFoundError,
     TraceService,
+    TraceStatusTransitionError,
     trace_service,
 )
 
@@ -15,5 +16,6 @@ __all__ = [
     "AgentStepNotFoundError",
     "TraceService",
     "TraceStatus",
+    "TraceStatusTransitionError",
     "trace_service",
 ]
