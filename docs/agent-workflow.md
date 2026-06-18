@@ -21,10 +21,10 @@ The PlatformAdapter registry remains the core platform abstraction. The workflow
 preview node resolves adapters through the registry and does not hardcode
 platform-specific adapter behavior.
 
-Each `agent-preview` execution now creates an in-memory Agent Run trace. Each
+Each `agent-preview` execution now creates a PostgreSQL-backed Agent Run trace. Each
 LangGraph node is wrapped by the trace layer and writes an Agent Step with status,
-input/output snapshots, latency, and errors. Human Review, Evaluation, persistent
-trace storage, and real publishing remain future work.
+input/output snapshots, latency, and errors. Human Review, Evaluation, and real
+publishing remain future work.
 
 ## Current Trace Flow
 
@@ -104,12 +104,12 @@ Source Content / Idea
 - No single node should handle multiple responsibilities.
 - Every Agent run must be recorded (steps, tool calls, latency, errors). The
   current skeleton records run/step status, snapshots, latency, and errors in
-  memory; token usage is still future work because no LLM is called.
+  PostgreSQL; token usage is still future work because no LLM is called.
 - Human approval is mandatory before any publish action.
 
 ## Not in MVP
 
 The full Agent workflow is still out of scope. The current implementation includes
-only the deterministic LangGraph preview skeleton plus in-memory trace records.
-Real LLM calls, Prompt Engineering, RAG, Human Review, Evaluation, persistent
-trace storage, and real publishing are not implemented.
+only the deterministic LangGraph preview skeleton plus PostgreSQL-backed trace
+records. Real LLM calls, Prompt Engineering, RAG, Human Review, Evaluation, and
+real publishing are not implemented.

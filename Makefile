@@ -1,4 +1,4 @@
-.PHONY: install dev-api dev-web lint format typecheck test docker-up docker-down
+.PHONY: install dev-api dev-web lint format typecheck test db-migrate db-upgrade db-downgrade docker-up docker-down
 
 # Install all dependencies
 install:
@@ -33,6 +33,18 @@ test:
 	uv run pytest apps/api/tests/ -v --tb=short
 	pnpm --filter @contentops/web test
 
+# Create a new Alembic migration after model changes
+db-migrate:
+	uv run alembic revision --autogenerate -m "$(message)"
+
+# Apply database migrations
+db-upgrade:
+	uv run alembic upgrade head
+
+# Roll back one database migration
+db-downgrade:
+	uv run alembic downgrade -1
+
 # Start Docker services (PostgreSQL + Redis)
 docker-up:
 	docker compose up -d
@@ -52,5 +64,8 @@ help:
 	@echo "format        Run ruff format (Python) and prettier (Next.js)"
 	@echo "typecheck     Run mypy (Python) and tsc (Next.js)"
 	@echo "test          Run pytest (Python) and vitest/jest (Next.js)"
+	@echo "db-migrate    Create an Alembic migration (message='...')"
+	@echo "db-upgrade    Apply Alembic migrations"
+	@echo "db-downgrade  Roll back one Alembic migration"
 	@echo "docker-up     Start PostgreSQL and Redis via Docker"
 	@echo "docker-down   Stop Docker services"

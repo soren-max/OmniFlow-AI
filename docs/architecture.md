@@ -15,10 +15,13 @@ The adapter-driven preview and mock publish pipeline is operational:
 - **Adapter registry** for platform → class resolution.
 - Shared adapter data types: Platform, PlatformContent, ValidationResult, PublishResult, etc.
 - **Deterministic LangGraph preview workflow skeleton** in `apps/api/app/agents/`.
-- **In-memory Agent Run and Agent Step trace records** in `apps/api/app/telemetry/`.
+- **PostgreSQL-backed Agent Run and Agent Step trace records** in `apps/api/app/telemetry/`.
+- **SQLAlchemy repositories and Alembic migrations** for projects, platform preview
+  results, mock publish results, Agent Runs, and Agent Steps.
 
-No LLM-backed Agent workflow, trace database persistence, or real platform publish
-implementations exist yet. The current publishing path is mock-only.
+No LLM-backed Agent workflow, Human Review workflow, Evaluation report, or real
+platform publish implementations exist yet. The current publishing path is
+mock-only.
 
 ## Intended Architecture (Future)
 
@@ -58,7 +61,7 @@ implementations exist yet. The current publishing path is mock-only.
 ├─────────────────────┤
 │  Evaluators         │  Quality evaluation (future)
 ├─────────────────────┤
-│  Telemetry          │  In-memory Agent Run and Agent Step traces now; metrics later
+│  Telemetry          │  PostgreSQL Agent Run and Agent Step traces now; metrics later
 └─────────────────────┘
 ```
 
@@ -71,6 +74,8 @@ implementations exist yet. The current publishing path is mock-only.
 - **Registry-based platform lookup**: New platforms are added by creating a `PlatformAdapter` implementation and registering it in `apps/api/app/adapters/registry.py`.
 - **Deterministic workflow first**: LangGraph is used for a small preview workflow skeleton without LLM calls or provider SDKs.
 - **Centralized trace service**: Agent Run and Agent Step lifecycle transitions live in `apps/api/app/telemetry/service.py`; workflow nodes do not persist trace records directly.
+- **Repository-backed persistence**: services call repositories that write core records
+  through SQLAlchemy models; routes stay thin and do not perform database queries.
 - **Human-in-the-loop planned**: Real publishing will require explicit approval before execution, but the approval workflow is not implemented yet.
 
 ## LangGraph Workflow Skeleton
@@ -96,13 +101,15 @@ Each wrapped node creates one Agent Step and records:
 - Step latency and total run latency.
 - Tool call metadata placeholder fields.
 
-Trace records are stored in an in-memory repository for now. They are available
+Trace records are stored in PostgreSQL through the trace repository. They are available
 through `GET /api/runs/{run_id}` and `GET /api/runs/{run_id}/steps`. The
 `POST /api/projects/{id}/agent-preview` response includes `run_id` so callers can
 inspect the workflow trace.
 
-Later work should move trace storage to PostgreSQL and extend the same service
-for Preview, Mock Publish, Human Review, and Evaluation events.
+Projects, platform preview results, mock publish results, Agent Runs, and Agent
+Steps are covered by the current PostgreSQL persistence layer. ReviewRecord and
+EvaluationReport persistence are planned for later Human Review and Evaluation
+work.
 
 ## PlatformAdapter Flow
 
@@ -124,8 +131,9 @@ credential handling, and trace logging are in place.
 
 - LLM-backed LangGraph agent orchestration.
 - **Real platform API integration** (mock adapters and mock publish are done).
-- Persistent Agent Run / Agent Step storage.
+- Human Review workflow and ReviewRecord persistence.
 - Evaluation system.
+- EvaluationReport persistence.
 - OpenTelemetry instrumentation.
 - Async task queue (Celery / Dramatiq).
 - Vector search (Qdrant).

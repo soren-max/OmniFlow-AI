@@ -25,6 +25,7 @@ Manually adapting content for each platform is time-consuming, error-prone, and 
 - Mock publish                    ✅
 - LangGraph workflow skeleton     ✅
 - Agent Run / Step trace records  ✅
+- PostgreSQL persistence          ✅
 - FastAPI backend                 ✅
 - Next.js frontend                ✅
 - Enterprise repository standards ✅
@@ -60,7 +61,7 @@ All adapters implement the same `PlatformAdapter` abstract interface — adding 
 │                                                                 │
 │  POST /api/projects                                             │
 │    → ContentProjectService.create_project()                     │
-│    → ProjectRepository (in-memory)                              │
+│    → ProjectRepository → SQLAlchemy → PostgreSQL                 │
 │                                                                 │
 │  POST /api/projects/{id}/preview                                │
 │    → ContentProjectService.generate_previews()                  │
@@ -77,12 +78,12 @@ All adapters implement the same `PlatformAdapter` abstract interface — adding 
 │    → TraceService records Agent Run + Agent Step records         │
 │                                                                 │
 │  GET /api/runs/{run_id} and /api/runs/{run_id}/steps             │
-│    → TraceService reads in-memory workflow trace records         │
+│    → TraceService reads PostgreSQL workflow trace records        │
 └──────────────┬──────────────────────────────────┬───────────────┘
                │                                  │
                ▼                                  ▼
        PlatformAdapter Registry          PostgreSQL / Redis
-       (wechat, zhihu, bilibili,         (configured, not yet used)
+       (wechat, zhihu, bilibili,         (persistence + local services)
         xiaohongshu, douyin)
 ```
 
@@ -99,17 +100,18 @@ Create project → Select platforms → Generate previews → Mock publish
 The backend includes a minimal LangGraph workflow for experimental preview generation:
 intake → platform strategy → preview generation → finish. The workflow is deterministic,
 does not call a real LLM, and still uses `PlatformAdapter` as the platform adaptation
-boundary. Each workflow execution creates an in-memory Agent Run record, and each
+boundary. Each workflow execution creates a PostgreSQL-backed Agent Run record, and each
 node writes an Agent Step record with status, input/output snapshots, latency, and
 errors.
 
 ### Agent Trace Foundation
 
-The backend includes AgentRun and AgentStep data models plus an in-memory
+The backend includes AgentRun and AgentStep data models plus a database-backed
 `TraceService`. The LangGraph preview skeleton records node execution traces for
-the experimental `agent-preview` path. Regular Preview and Mock Publish remain
-direct adapter service calls. Real publishing, Human Review, Evaluation reports,
-and production PostgreSQL trace persistence remain future work.
+the experimental `agent-preview` path. Projects, platform preview results, mock
+publish results, Agent Runs, and Agent Steps are persisted through SQLAlchemy and
+Alembic-managed PostgreSQL tables. Real publishing, Human Review, and Evaluation
+reports remain future work.
 
 ---
 
@@ -298,6 +300,9 @@ make dev-web
 | `make format` | Run ruff format + prettier |
 | `make typecheck` | Run mypy (Python) + tsc (frontend) |
 | `make test` | Run pytest (Python) + frontend tests |
+| `make db-migrate` | Create an Alembic migration (`message='...'`) |
+| `make db-upgrade` | Apply Alembic migrations |
+| `make db-downgrade` | Roll back one Alembic migration |
 | `make docker-up` | Start PostgreSQL + Redis |
 | `make docker-down` | Stop all Docker services |
 
@@ -390,12 +395,12 @@ The following features are **explicitly out of scope** for the current stage:
 |------------|--------|
 | Real platform publishing | ❌ Not implemented. `adapter.publish()` raises `NotImplementedError`. |
 | LangGraph workflow orchestration | ✅ Minimal deterministic preview skeleton only; no LLM calls. |
-| Agent Run Trace | ✅ In-memory Agent Run and Agent Step records for the LangGraph preview skeleton. |
+| Agent Run Trace | ✅ PostgreSQL-backed Agent Run and Agent Step records for the LangGraph preview skeleton. |
 | Human Review workflow | ❌ No approval/rejection flow before publish. |
 | Evaluation Reports | ❌ No quality scoring, consistency checks, or evaluation metrics. |
 | Authentication / Authorization | ❌ No user system, API keys, or session management. |
-| Database persistence | ❌ Projects stored in memory only (volatile). |
-| Trace persistence | ❌ Trace records are in memory only (volatile). |
+| Database persistence | ✅ Projects, previews, mock publish results, Agent Runs, and Agent Steps are persisted in PostgreSQL. |
+| Review/Evaluation persistence | 🔜 Planned with Human Review and Evaluation Reports. |
 | Frontend tests | ❌ `pnpm test` is a placeholder — no Vitest/Jest configured. |
 
 ---
@@ -406,7 +411,7 @@ The following features are **explicitly out of scope** for the current stage:
 |-------|-------|--------|
 | **Phase 1** | Repository bootstrap and adapter-driven preview | ✅ **Done** |
 | **Phase 2** | Mock Publish and API schema stabilization | ✅ **Done** |
-| **Phase 3** | LangGraph preview skeleton and in-memory Agent Run Trace | ✅ **In progress** |
+| **Phase 3** | LangGraph preview skeleton and PostgreSQL-backed Agent Run Trace | ✅ **In progress** |
 | **Phase 4** | Human Review and traced workflow integration | 🔜 Planned |
 | **Phase 5** | Evaluation and observability | 🔜 Planned |
 | **Phase 6** | Real publishing integrations with explicit approval | 🔜 Planned |
@@ -425,7 +430,7 @@ The codebase is structured for Agent workflow integration from day one:
 - `adapters/` module provides the tool-calling interface that agents will invoke.
 - `schemas/` holds Pydantic models that define the input/output contract for every Agent node.
 - `services/` contains business logic that can be called by both API routes and Agent nodes.
-- `telemetry/` contains in-memory Agent Run and Agent Step records; `evaluators/` remains reserved for quality scoring.
+- `telemetry/` contains PostgreSQL-backed Agent Run and Agent Step records; `evaluators/` remains reserved for quality scoring.
 
 ### Tool / Adapter Abstraction
 

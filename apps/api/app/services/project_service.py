@@ -271,6 +271,12 @@ class ContentProjectService:
                 }
             )
 
+        self._repository.add_publish_results(
+            project_id=project_id,
+            mode=mode,
+            results=publish_results,
+        )
+
         from datetime import datetime, timezone
 
         return {
