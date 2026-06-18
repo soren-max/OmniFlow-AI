@@ -3,7 +3,8 @@
 ## Current Stage (Phase 3: Deterministic LangGraph Skeleton)
 
 The project is in **Phase 3** with Repository Bootstrap, adapter-driven Preview,
-Mock Publish, Agent Trace foundation, and a deterministic LangGraph preview skeleton.
+Mock Publish, rule-based Evaluation Report, Agent Trace foundation, and a
+deterministic LangGraph preview skeleton.
 The adapter-driven preview and mock publish pipeline is operational:
 
 - FastAPI backend with a health check endpoint.
@@ -15,12 +16,13 @@ The adapter-driven preview and mock publish pipeline is operational:
 - **Adapter registry** for platform → class resolution.
 - Shared adapter data types: Platform, PlatformContent, ValidationResult, PublishResult, etc.
 - **Deterministic LangGraph preview workflow skeleton** in `apps/api/app/agents/`.
+- **Rule-based evaluation reports** in `apps/api/app/evaluators/`.
 - **PostgreSQL-backed Agent Run and Agent Step trace records** in `apps/api/app/telemetry/`.
 - **SQLAlchemy repositories and Alembic migrations** for projects, platform preview
-  results, mock publish results, Agent Runs, and Agent Steps.
+  results, mock publish results, Evaluation Reports, Agent Runs, and Agent Steps.
 
-No LLM-backed Agent workflow, Human Review workflow, Evaluation report, or real
-platform publish implementations exist yet. The current publishing path is
+No LLM-backed Agent workflow, Human Review workflow, LLM-as-judge evaluation, or
+real platform publish implementations exist yet. The current publishing path is
 mock-only.
 
 ## Intended Architecture (Future)
@@ -59,7 +61,7 @@ mock-only.
 ├─────────────────────┤
 │  Adapters           │  Platform-specific publishing (mock adapters + registry done)
 ├─────────────────────┤
-│  Evaluators         │  Quality evaluation (future)
+│  Evaluators         │  Rule-based quality evaluation now; LLM-as-judge later
 ├─────────────────────┤
 │  Telemetry          │  PostgreSQL Agent Run and Agent Step traces now; metrics later
 └─────────────────────┘
@@ -78,6 +80,8 @@ mock-only.
   workflow nodes do not persist trace records directly.
 - **Repository-backed persistence**: services call repositories that write core records
   through SQLAlchemy models; routes stay thin and do not perform database queries.
+- **Rule-based evaluation first**: evaluation scores are deterministic checks over
+  generated previews and adapter validation output, not LLM-as-judge.
 - **Human-in-the-loop planned**: Real publishing will require explicit approval before execution, but the approval workflow is not implemented yet.
 
 ## LangGraph Workflow Skeleton
@@ -112,10 +116,23 @@ through `GET /api/runs/{run_id}` and `GET /api/runs/{run_id}/steps`. The
 `POST /api/projects/{id}/agent-preview` response includes `run_id` so callers can
 inspect the workflow trace.
 
-Projects, platform preview results, mock publish results, Agent Runs, and Agent
-Steps are covered by the current PostgreSQL persistence layer. ReviewRecord and
-EvaluationReport persistence are planned for later Human Review and Evaluation
-work.
+Projects, platform preview results, mock publish results, Evaluation Reports,
+Agent Runs, and Agent Steps are covered by the current PostgreSQL persistence
+layer. ReviewRecord persistence is planned for later Human Review work.
+
+## Rule-Based Evaluation
+
+`apps/api/app/evaluators/rule_based.py` scores saved previews across:
+
+- `format_score`
+- `style_score`
+- `consistency_score`
+- `compliance_score`
+- `completeness_score`
+- `overall_score`
+
+Reports also include platform-level issues and suggestions. This baseline is
+deterministic and does not call an LLM.
 
 ## PlatformAdapter Flow
 
@@ -138,8 +155,7 @@ credential handling, and trace logging are in place.
 - LLM-backed LangGraph agent orchestration.
 - **Real platform API integration** (mock adapters and mock publish are done).
 - Human Review workflow and ReviewRecord persistence.
-- Evaluation system.
-- EvaluationReport persistence.
+- LLM-as-judge evaluation.
 - OpenTelemetry instrumentation.
 - Async task queue (Celery / Dramatiq).
 - Vector search (Qdrant).

@@ -23,6 +23,7 @@ Manually adapting content for each platform is time-consuming, error-prone, and 
 - Five platform adapters          ✅
 - Adapter registry                ✅
 - Mock publish                    ✅
+- Rule-based Evaluation Report    ✅
 - LangGraph workflow skeleton     ✅
 - Agent Run / Step trace records  ✅
 - PostgreSQL persistence          ✅
@@ -111,7 +112,16 @@ The backend includes AgentRun and AgentStep data models plus a database-backed
 skeleton records node execution traces for the experimental `agent-preview` path.
 Projects, platform preview results, mock publish results, Agent Runs, and Agent
 Steps are persisted through SQLAlchemy and Alembic-managed PostgreSQL tables.
-Real publishing, Human Review, and Evaluation reports remain future work.
+Rule-based Evaluation Reports are available for generated previews. Real
+publishing, Human Review, and LLM-based evaluation remain future work.
+
+### Evaluation Report
+
+The backend includes a deterministic rule-based evaluator for generated
+previews. It scores `format_score`, `style_score`, `consistency_score`,
+`compliance_score`, `completeness_score`, and `overall_score`, then surfaces
+issues and suggestions per platform. This is not LLM-as-judge and does not call
+any model provider.
 
 ---
 
@@ -397,10 +407,10 @@ The following features are **explicitly out of scope** for the current stage:
 | LangGraph workflow orchestration | ✅ Minimal deterministic preview skeleton only; no LLM calls. |
 | Agent Run Trace | ✅ PostgreSQL-backed Agent Run and Agent Step records for the LangGraph preview skeleton. |
 | Human Review workflow | ❌ No approval/rejection flow before publish. |
-| Evaluation Reports | ❌ No quality scoring, consistency checks, or evaluation metrics. |
+| Evaluation Reports | ✅ Rule-based quality scoring for generated previews. Not LLM-as-judge. |
 | Authentication / Authorization | ❌ No user system, API keys, or session management. |
 | Database persistence | ✅ Projects, previews, mock publish results, Agent Runs, and Agent Steps are persisted in PostgreSQL. |
-| Review/Evaluation persistence | 🔜 Planned with Human Review and Evaluation Reports. |
+| Review persistence | 🔜 Planned with Human Review. |
 | Frontend tests | ❌ `pnpm test` is a placeholder — no Vitest/Jest configured. |
 
 ---

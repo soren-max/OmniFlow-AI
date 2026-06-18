@@ -6,7 +6,11 @@
  *   const project = await api.createProject({ title: "...", source_text: "..." });
  */
 
-import type { PublishProjectRequest, PublishProjectResponse } from "@/types";
+import type {
+  EvaluationReportResponse,
+  PublishProjectRequest,
+  PublishProjectResponse,
+} from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -124,6 +128,18 @@ export const api = {
     return request<PublishProjectResponse>(`/api/projects/${projectId}/publish`, {
       method: "POST",
       body: JSON.stringify(body),
+    });
+  },
+
+  createEvaluation(projectId: string): Promise<ApiResponse<EvaluationReportResponse>> {
+    return request<EvaluationReportResponse>(`/api/projects/${projectId}/evaluation`, {
+      method: "POST",
+    });
+  },
+
+  getEvaluation(projectId: string): Promise<ApiResponse<EvaluationReportResponse>> {
+    return request<EvaluationReportResponse>(`/api/projects/${projectId}/evaluation`, {
+      method: "GET",
     });
   },
 };

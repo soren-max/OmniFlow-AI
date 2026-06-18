@@ -42,6 +42,11 @@ class ContentProjectModel(Base):
         back_populates="project",
         cascade="all, delete-orphan",
     )
+    evaluation_reports: Mapped[list[EvaluationReportModel]] = relationship(
+        back_populates="project",
+        cascade="all, delete-orphan",
+        order_by="EvaluationReportModel.created_at",
+    )
 
 
 class PlatformContentModel(Base):
@@ -121,3 +126,31 @@ class PublishResultModel(Base):
     metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
 
     task: Mapped[PublishTaskModel] = relationship(back_populates="results")
+
+
+class EvaluationReportModel(Base):
+    """Persisted rule-based content quality evaluation report."""
+
+    __tablename__ = "evaluation_reports"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("content_projects.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    average_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    platform_scores_json: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=list,
+    )
+    issues_json: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    suggestions_json: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    project: Mapped[ContentProjectModel] = relationship(back_populates="evaluation_reports")

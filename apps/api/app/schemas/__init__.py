@@ -6,6 +6,7 @@ from .common import ApiError, ApiResponse
 from .project import (
     ContentProjectResponse,
     CreateContentProjectRequest,
+    EvaluationReportResponse,
     GeneratePreviewRequest,
     PlatformPreviewResponse,
     PlatformPublishResultItem,
@@ -21,6 +22,7 @@ __all__ = [
     "ApiResponse",
     "ContentProjectResponse",
     "CreateContentProjectRequest",
+    "EvaluationReportResponse",
     "GeneratePreviewRequest",
     "PlatformPreviewResponse",
     "PlatformPublishResultItem",

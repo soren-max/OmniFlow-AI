@@ -11,6 +11,8 @@ POST  /api/projects                → Create a content project
 GET   /api/projects/{id}           → Get a content project by id
 POST  /api/projects/{id}/preview   → Generate platform previews
 POST  /api/projects/{id}/agent-preview → Run experimental LangGraph preview skeleton
+POST  /api/projects/{id}/evaluation → Create rule-based evaluation report
+GET   /api/projects/{id}/evaluation → Get latest evaluation report
 POST  /api/projects/{id}/publish   → Mock publish selected platforms
 GET   /api/runs/{run_id}           → Get an Agent Run trace record
 GET   /api/runs/{run_id}/steps     → List Agent Step trace records for a run
@@ -23,6 +25,9 @@ migrations. Previews are generated using the PlatformAdapter mock adapters. Mock
 publish is supported through `mock_publish`; no real platform API is called.
 LangGraph is present only as a deterministic preview workflow skeleton and does
 not call a real LLM.
+
+Evaluation is currently rule-based. It computes deterministic scores from
+persisted preview records and adapter validation output. It is not LLM-as-judge.
 
 Agent Run and Agent Step endpoints are read-only. They expose persisted trace
 records written by the deterministic LangGraph `agent-preview` workflow. Trace
@@ -60,6 +65,8 @@ The API will follow RESTful conventions:
 | GET | /api/projects/{id} | Get project details and saved previews |
 | POST | /api/projects/{id}/preview | Generate previews for target platforms |
 | POST | /api/projects/{id}/agent-preview | Run experimental deterministic LangGraph preview |
+| POST | /api/projects/{id}/evaluation | Create a rule-based evaluation report |
+| GET | /api/projects/{id}/evaluation | Get the latest rule-based evaluation report |
 | POST | /api/projects/{id}/publish | Mock publish selected target platforms |
 
 ### Agent Runs
@@ -140,6 +147,45 @@ explicit user authorization, and secure platform credentials.
 returns the ordered `AgentStep` records for that run. Both use the standard response
 envelope. Regular Preview and Mock Publish do not write LangGraph step records yet;
 they persist their own project preview and mock publish result rows.
+
+### Evaluation — `POST /api/projects/{id}/evaluation`
+
+Creates a deterministic rule-based evaluation report from saved previews.
+
+```json
+{
+  "success": true,
+  "data": {
+    "project_id": "a1b2c3d4e5f6",
+    "average_score": 86,
+    "platform_scores": [
+      {
+        "platform": "douyin",
+        "platform_display_name": "Douyin",
+        "format_score": 100,
+        "style_score": 88,
+        "consistency_score": 82,
+        "compliance_score": 100,
+        "completeness_score": 85,
+        "overall_score": 91,
+        "issues": [],
+        "suggestions": ["douyin: add a concise summary"]
+      }
+    ],
+    "issues": [],
+    "suggestions": ["douyin: add a concise summary"],
+    "created_at": "2025-01-01T00:00:00Z"
+  },
+  "error": null
+}
+```
+
+If no previews exist yet, the endpoint returns `EVALUATION_REQUIRES_PREVIEW`.
+
+### Evaluation — `GET /api/projects/{id}/evaluation`
+
+Returns the latest saved rule-based evaluation report. If no report exists yet,
+the endpoint returns `EVALUATION_NOT_FOUND`.
 
 ### Get Project — `GET /api/projects/{id}`
 
@@ -377,4 +423,4 @@ Current error codes include:
 - **Listing all projects** — no paginated list endpoint.
 - **Authentication/authorization** — no user or API key system.
 - **Human Review workflow** — approval/rejection is not implemented yet.
-- **Evaluation Report** — quality scoring and report persistence are not implemented yet.
+- **LLM-as-judge Evaluation** — current Evaluation Report is rule-based only.

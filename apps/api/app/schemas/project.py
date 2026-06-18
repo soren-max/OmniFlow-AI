@@ -130,3 +130,29 @@ class PublishProjectResponse(BaseModel):
     mode: str
     results: list[PlatformPublishResultItem]
     published_at: datetime
+
+
+class PlatformEvaluationScore(BaseModel):
+    """Rule-based evaluation scores for one platform preview."""
+
+    platform: str
+    platform_display_name: str
+    format_score: int
+    style_score: int
+    consistency_score: int
+    compliance_score: int
+    completeness_score: int
+    overall_score: int
+    issues: list[str] = Field(default_factory=list)
+    suggestions: list[str] = Field(default_factory=list)
+
+
+class EvaluationReportResponse(BaseModel):
+    """Rule-based content quality evaluation report."""
+
+    project_id: str
+    average_score: int
+    platform_scores: list[PlatformEvaluationScore]
+    issues: list[str] = Field(default_factory=list)
+    suggestions: list[str] = Field(default_factory=list)
+    created_at: datetime

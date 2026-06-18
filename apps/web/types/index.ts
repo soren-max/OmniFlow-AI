@@ -28,9 +28,11 @@ export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 
 /** Evaluation scores */
 export interface EvaluationScores {
+  format_score: number;
+  style_score: number;
   consistency_score: number;
   compliance_score: number;
-  readability_score: number;
+  completeness_score: number;
   overall_score: number;
 }
 
@@ -108,6 +110,24 @@ export interface PublishProjectResponse {
   mode: string;
   results: PlatformPublishResultItem[];
   published_at: string;
+}
+
+/** Rule-based platform evaluation score */
+export interface PlatformEvaluationScore extends EvaluationScores {
+  platform: string;
+  platform_display_name: string;
+  issues: string[];
+  suggestions: string[];
+}
+
+/** Rule-based evaluation report */
+export interface EvaluationReportResponse {
+  project_id: string;
+  average_score: number;
+  platform_scores: PlatformEvaluationScore[];
+  issues: string[];
+  suggestions: string[];
+  created_at: string;
 }
 
 /** Platform display info */
