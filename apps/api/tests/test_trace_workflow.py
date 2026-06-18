@@ -14,6 +14,7 @@ from api.app.telemetry.repository import TraceRepository
 from api.app.telemetry.schemas import TraceStatus
 from api.app.telemetry.service import TraceService, trace_service
 from httpx import ASGITransport, AsyncClient, Response
+from sqlalchemy.orm import Session, sessionmaker
 
 SAMPLE_CONTENT = (
     "Trace workflow test content with enough detail for adapter preview generation. "
@@ -35,9 +36,9 @@ def _unwrap_success(response: Response) -> dict[str, Any]:
 
 
 @pytest.fixture
-def service() -> TraceService:
+def service(db_session_factory: sessionmaker[Session]) -> TraceService:
     """Create an isolated trace service."""
-    return TraceService(repository=TraceRepository())
+    return TraceService(repository=TraceRepository(session_factory=db_session_factory))
 
 
 @pytest.fixture

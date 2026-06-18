@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     # PostgreSQL
     database_url: str = Field(
-        default="postgresql://contentops:contentops_password@localhost:5432/contentops",
+        default="postgresql+psycopg://contentops:contentops_password@localhost:5432/contentops",
         alias="DATABASE_URL",
     )
 

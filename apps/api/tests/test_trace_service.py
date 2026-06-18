@@ -15,6 +15,7 @@ from api.app.services.trace_service import (
     TraceStatusTransitionError,
 )
 from httpx import ASGITransport, AsyncClient, Response
+from sqlalchemy.orm import Session, sessionmaker
 
 
 def _unwrap_success(response: Response) -> dict[str, Any]:
@@ -26,9 +27,9 @@ def _unwrap_success(response: Response) -> dict[str, Any]:
 
 
 @pytest.fixture
-def trace_service() -> AgentTraceService:
+def trace_service(db_session_factory: sessionmaker[Session]) -> AgentTraceService:
     """Create an isolated trace service for unit tests."""
-    return AgentTraceService(repository=TraceRepository())
+    return AgentTraceService(repository=TraceRepository(session_factory=db_session_factory))
 
 
 @pytest.fixture
