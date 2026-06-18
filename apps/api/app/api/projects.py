@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Any
 
 from api.app.adapters.registry import AdapterNotFoundError
+from api.app.agents.runner import run_content_preview_workflow
 from api.app.schemas.common import ApiResponse, ok
 from api.app.schemas.project import (
     ContentProjectResponse,
@@ -118,6 +119,33 @@ async def generate_preview(
                 "details": {"platform": str(exc.platform)},
             },
         )
+
+
+@router.post("/{project_id}/agent-preview", response_model=ApiResponse[dict[str, Any]])
+async def generate_agent_preview(
+    project_id: str,
+    body: GeneratePreviewRequest,
+) -> ApiResponse[dict[str, Any]]:
+    """Run the experimental deterministic Agent preview workflow."""
+    try:
+        project = _service.get_project(project_id)
+    except ProjectNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "PROJECT_NOT_FOUND",
+                "message": f"Project not found: {project_id}",
+                "details": {"project_id": project_id},
+            },
+        )
+
+    state = run_content_preview_workflow(
+        project_id=project_id,
+        source_title=str(project["title"]),
+        source_content=str(project["source_text"]),
+        target_platforms=body.platforms,
+    )
+    return ok(dict(state))
 
 
 @router.post("/{project_id}/publish", response_model=ApiResponse[PublishProjectResponse])
