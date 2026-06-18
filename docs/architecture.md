@@ -15,10 +15,10 @@ The adapter-driven preview and mock publish pipeline is operational:
 - **Adapter registry** for platform → class resolution.
 - Shared adapter data types: Platform, PlatformContent, ValidationResult, PublishResult, etc.
 - **Deterministic LangGraph preview workflow skeleton** in `apps/api/app/agents/`.
-- **Agent trace data models and service layer** for in-memory Agent Run / Agent Step records.
+- **In-memory Agent Run and Agent Step trace records** in `apps/api/app/telemetry/`.
 
-No LLM-backed Agent workflow, database models, or real platform publish implementations exist yet.
-The current publishing path is mock-only.
+No LLM-backed Agent workflow, trace database persistence, or real platform publish
+implementations exist yet. The current publishing path is mock-only.
 
 ## Intended Architecture (Future)
 
@@ -58,7 +58,7 @@ The current publishing path is mock-only.
 ├─────────────────────┤
 │  Evaluators         │  Quality evaluation (future)
 ├─────────────────────┤
-│  Telemetry          │  Agent run/step trace records now; logging and metrics later
+│  Telemetry          │  In-memory Agent Run and Agent Step traces now; metrics later
 └─────────────────────┘
 ```
 
@@ -70,7 +70,7 @@ The current publishing path is mock-only.
 - **Adapter pattern**: Platform-specific logic is isolated behind a common interface.
 - **Registry-based platform lookup**: New platforms are added by creating a `PlatformAdapter` implementation and registering it in `apps/api/app/adapters/registry.py`.
 - **Deterministic workflow first**: LangGraph is used for a small preview workflow skeleton without LLM calls or provider SDKs.
-- **Trace boundary first**: Agent Run and Agent Step records live behind an in-memory repository and `AgentTraceService`; they are not yet connected to the LangGraph skeleton.
+- **Centralized trace service**: Agent Run and Agent Step lifecycle transitions live in `apps/api/app/telemetry/service.py`; workflow nodes do not persist trace records directly.
 - **Human-in-the-loop planned**: Real publishing will require explicit approval before execution, but the approval workflow is not implemented yet.
 
 ## LangGraph Workflow Skeleton
@@ -85,21 +85,24 @@ The current Agent layer contains a minimal `StateGraph` for content preview:
 The runner in `apps/api/app/agents/runner.py` hides LangGraph internals from future
 service callers. Existing preview and mock publish services remain intact.
 
-## Agent Trace Data Model
+## Agent Trace Recording
 
-The current trace implementation is intentionally small and is not connected to the
-LangGraph preview skeleton yet. It provides the data structures and service boundary
-needed by future traced workflow nodes:
+The current LangGraph preview runner creates one Agent Run per workflow execution.
+Each wrapped node creates one Agent Step and records:
 
-- `AgentRun` represents one future Agent workflow execution for a project.
-- `AgentStep` represents one future node execution within a run.
-- Both records track status, input/output snapshots, errors, timestamps, and latency.
-- `AgentStep.tool_calls` can record tool call metadata once tools are introduced.
-- `TraceRepository` is in-memory only and will be replaced by database persistence later.
+- `running`, `completed`, or `failed` status.
+- Input and output snapshots.
+- Error messages when a node or run fails.
+- Step latency and total run latency.
+- Tool call metadata placeholder fields.
 
-Future trace integration will create one Agent Run per workflow and write one Agent
-Step per node. Existing preview generation and Mock Publish are not yet recorded in
-trace, but they are expected to become traced steps once orchestration is added.
+Trace records are stored in an in-memory repository for now. They are available
+through `GET /api/runs/{run_id}` and `GET /api/runs/{run_id}/steps`. The
+`POST /api/projects/{id}/agent-preview` response includes `run_id` so callers can
+inspect the workflow trace.
+
+Later work should move trace storage to PostgreSQL and extend the same service
+for Preview, Mock Publish, Human Review, and Evaluation events.
 
 ## PlatformAdapter Flow
 
@@ -121,6 +124,7 @@ credential handling, and trace logging are in place.
 
 - LLM-backed LangGraph agent orchestration.
 - **Real platform API integration** (mock adapters and mock publish are done).
+- Persistent Agent Run / Agent Step storage.
 - Evaluation system.
 - OpenTelemetry instrumentation.
 - Async task queue (Celery / Dramatiq).

@@ -17,32 +17,39 @@ Today the product still uses the existing `POST /api/projects/{id}/preview` API 
 the main preview path. The experimental `POST /api/projects/{id}/agent-preview`
 endpoint calls the LangGraph runner and returns workflow state for validation.
 
-The repository now includes foundational Trace data models and service methods:
-
-- Agent Run records describe one future workflow execution.
-- Agent Step records describe one future node execution.
-- The trace repository is in-memory only.
-- The trace service supports create, finish, fail, and list operations.
-
-These trace records are not connected to the LangGraph skeleton yet. They define the
-execution trace boundary that future workflow nodes will use.
-
 The PlatformAdapter registry remains the core platform abstraction. The workflow
 preview node resolves adapters through the registry and does not hardcode
 platform-specific adapter behavior.
 
-Preview and Mock Publish will later be connected to Agent Run Trace. Human Review
-and Evaluation remain future work.
+Each `agent-preview` execution now creates an in-memory Agent Run trace. Each
+LangGraph node is wrapped by the trace layer and writes an Agent Step with status,
+input/output snapshots, latency, and errors. Human Review, Evaluation, persistent
+trace storage, and real publishing remain future work.
 
-## Trace Recording Plan
+## Current Trace Flow
 
-When trace integration is added, each workflow invocation will create one Agent Run.
-Each LangGraph node will create one Agent Step when it starts, then finish or fail
-that step with output snapshots, tool calls, latency, and error details.
+```
+run_content_preview_workflow()
+        │
+        ▼
+TraceService.create_run(status="running")
+        │
+        ▼
+intake → platform_strategy → preview_generation → finish
+  │              │                    │              │
+  └──── TraceService records one Agent Step per node ┘
+        │
+        ▼
+TraceService.finish_run(...) or TraceService.fail_run(...)
+```
 
-Preview generation and Mock Publish are still direct service calls today. In a later
-workflow PR, they should be wrapped as traced nodes so preview and mock publish results
-are captured inside Agent Step records.
+The runner adds `run_id` to workflow state. API callers can inspect records with:
+
+- `GET /api/runs/{run_id}`
+- `GET /api/runs/{run_id}/steps`
+
+Preview and Mock Publish will later be incorporated into the same trace history
+when the workflow expands beyond the deterministic preview skeleton.
 
 ## Intended Workflow (Future)
 
@@ -95,11 +102,14 @@ Source Content / Idea
 - Each node is deterministic where possible.
 - Each node has a clear input/output schema (Pydantic).
 - No single node should handle multiple responsibilities.
-- Every Agent run must be recorded (steps, tool calls, latency, errors).
+- Every Agent run must be recorded (steps, tool calls, latency, errors). The
+  current skeleton records run/step status, snapshots, latency, and errors in
+  memory; token usage is still future work because no LLM is called.
 - Human approval is mandatory before any publish action.
 
 ## Not in MVP
 
-The full Agent workflow is still out of scope. This PR adds only the deterministic
-LangGraph preview skeleton. Real LLM calls, Prompt Engineering, RAG, Human Review,
-Evaluation, and real publishing are not implemented.
+The full Agent workflow is still out of scope. The current implementation includes
+only the deterministic LangGraph preview skeleton plus in-memory trace records.
+Real LLM calls, Prompt Engineering, RAG, Human Review, Evaluation, persistent
+trace storage, and real publishing are not implemented.

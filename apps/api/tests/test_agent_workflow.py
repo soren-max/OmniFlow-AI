@@ -31,6 +31,7 @@ ALL_PLATFORMS = ["wechat", "zhihu", "bilibili", "xiaohongshu", "douyin"]
 
 def _base_state(source_content: str = SAMPLE_CONTENT) -> ContentWorkflowState:
     return {
+        "run_id": None,
         "project_id": "project-1",
         "source_title": " Workflow Test ",
         "source_content": source_content,

@@ -8,6 +8,7 @@ from typing import Any, TypedDict
 class ContentWorkflowState(TypedDict):
     """Shared state passed between LangGraph preview workflow nodes."""
 
+    run_id: str | None
     project_id: str
     source_title: str
     source_content: str

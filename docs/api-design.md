@@ -21,10 +21,12 @@ Projects are stored in memory (in-memory repository). Previews are generated
 using the PlatformAdapter mock adapters. Mock publish is supported through
 `mock_publish`; no real platform API is called. LangGraph is present only as a
 deterministic preview workflow skeleton and does not call a real LLM.
+Agent Run and Agent Step traces are stored in memory for the deterministic
+LangGraph workflow. They are not persisted to PostgreSQL yet.
 
-Agent Run and Agent Step endpoints are read-only at this stage. They expose the
-in-memory trace data model used by `AgentTraceService`; they do not start LangGraph
-workflows or execute Agent nodes.
+Agent Run and Agent Step endpoints are read-only. They expose in-memory trace
+records written by the deterministic LangGraph `agent-preview` workflow. They do
+not call real LLMs, publish to real platforms, or persist to PostgreSQL yet.
 
 Supported preview platforms:
 
@@ -62,12 +64,11 @@ The API will follow RESTful conventions:
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | /api/runs/{run_id} | Get an Agent Run trace record |
-| GET | /api/runs/{run_id}/steps | List Agent Step trace records for a run |
+| GET | /api/runs/{run_id} | Get one in-memory Agent Run trace record |
+| GET | /api/runs/{run_id}/steps | List in-memory Agent Step records for a run |
 
-Trace records are currently created by the service layer and stored in memory.
-These endpoints are primarily for inspecting traces once future workflow code writes
-Agent Run and Agent Step records.
+Trace records are currently created by the deterministic LangGraph preview runner
+and stored in memory. Future work should move them to PostgreSQL.
 
 ### Create Project — `POST /api/projects`
 
@@ -216,9 +217,75 @@ workflow PR should map those operations to Agent Step records.
 
 This experimental endpoint runs the deterministic LangGraph preview skeleton.
 It returns workflow state with normalized input, platform strategy, previews,
-errors, and status. It does not replace `/preview`, call real LLMs, or perform
-real publishing. Platform previews are still generated through the PlatformAdapter
-registry.
+errors, status, and `run_id`. It also creates one Agent Run trace and one Agent
+Step trace per LangGraph node. It does not replace `/preview`, call real LLMs, or
+perform real publishing. Platform previews are still generated through the
+PlatformAdapter registry.
+
+```json
+// Response excerpt
+{
+  "success": true,
+  "data": {
+    "run_id": "f3c6e7...",
+    "project_id": "a1b2c3d4e5f6",
+    "status": "completed",
+    "previews": {
+      "wechat": { "...": "..." }
+    }
+  },
+  "error": null
+}
+```
+
+### Get Agent Run — `GET /api/runs/{run_id}`
+
+```json
+// Response (200 OK)
+{
+  "success": true,
+  "data": {
+    "run_id": "f3c6e7...",
+    "project_id": "a1b2c3d4e5f6",
+    "workflow_name": "content_preview",
+    "status": "completed",
+    "input_snapshot": {},
+    "output_snapshot": {},
+    "error_message": null,
+    "started_at": "2025-01-01T00:00:00Z",
+    "finished_at": "2025-01-01T00:00:01Z",
+    "total_latency_ms": 1000,
+    "created_at": "2025-01-01T00:00:00Z"
+  },
+  "error": null
+}
+```
+
+### List Agent Steps — `GET /api/runs/{run_id}/steps`
+
+```json
+// Response (200 OK)
+{
+  "success": true,
+  "data": [
+    {
+      "step_id": "b2f4...",
+      "run_id": "f3c6e7...",
+      "node_name": "intake",
+      "status": "completed",
+      "input_snapshot": {},
+      "output_snapshot": {},
+      "tool_calls": [],
+      "error_message": null,
+      "latency_ms": 12,
+      "started_at": "2025-01-01T00:00:00Z",
+      "finished_at": "2025-01-01T00:00:00Z",
+      "created_at": "2025-01-01T00:00:00Z"
+    }
+  ],
+  "error": null
+}
+```
 
 ## Intended Endpoints (Future)
 
@@ -297,6 +364,7 @@ Current error codes include:
 - `ADAPTER_EXECUTION_FAILED`
 - `REAL_PUBLISH_NOT_SUPPORTED`
 - `UNSUPPORTED_PUBLISH_MODE`
+- `AGENT_RUN_NOT_FOUND`
 - `VALIDATION_ERROR`
 - `HTTP_ERROR`
 

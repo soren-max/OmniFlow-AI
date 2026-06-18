@@ -1,20 +1,20 @@
-"""Agent run trace API routes."""
+"""Agent Run trace query API routes."""
 
 from __future__ import annotations
 
 from api.app.schemas.common import ApiResponse, ok
-from api.app.schemas.trace import AgentRun, AgentStep
-from api.app.services.trace_service import AgentRunNotFoundError, AgentTraceService
+from api.app.telemetry.schemas import AgentRun, AgentStep
+from api.app.telemetry.service import AgentRunNotFoundError, trace_service
 from fastapi import APIRouter, HTTPException
 
 router = APIRouter(prefix="/api/runs", tags=["agent-runs"])
 
-_service = AgentTraceService()
+_service = trace_service
 
 
 @router.get("/{run_id}", response_model=ApiResponse[AgentRun])
 async def get_run(run_id: str) -> ApiResponse[AgentRun]:
-    """Get an Agent run trace by id."""
+    """Return an Agent Run trace."""
     try:
         return ok(_service.get_run(run_id))
     except AgentRunNotFoundError:
@@ -30,7 +30,7 @@ async def get_run(run_id: str) -> ApiResponse[AgentRun]:
 
 @router.get("/{run_id}/steps", response_model=ApiResponse[list[AgentStep]])
 async def list_run_steps(run_id: str) -> ApiResponse[list[AgentStep]]:
-    """List Agent step traces for a run."""
+    """Return Agent Step traces for a run."""
     try:
         return ok(_service.list_steps_by_run(run_id))
     except AgentRunNotFoundError:
