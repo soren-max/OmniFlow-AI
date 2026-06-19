@@ -424,6 +424,18 @@ The following features are **explicitly out of scope** for the current stage:
 
 ---
 
+## Release Preparation
+
+The current target is a demo-quality `v0.1.0-alpha` release candidate. See
+[docs/release-checklist.md](docs/release-checklist.md) for the local demo
+checklist, interview demo checklist, known limitations, and pre-tag verification
+steps.
+
+This release does not include real LLM integration, real platform publishing,
+production authentication, or production deployment guarantees.
+
+---
+
 ## Roadmap
 
 | Phase | Scope | Status |
