@@ -1,58 +1,80 @@
-# Real Use Workflow
+# Real-Use Workflow
 
-This workflow describes the current personal-use handoff path. It helps a user
-prepare platform-specific content and move it into official publishing tools
-manually. It does not automate real publishing.
+This document describes the personal-use publishing workflow for OmniFlow-AI.
 
-## Flow
+**Important:** OmniFlow-AI is designed for assisted manual publishing. It does not
+automatically submit content to real platforms, does not store cookies or account
+passwords, and does not use browser automation (Playwright / Selenium) to bypass
+official workflows.
 
-1. Generate platform content.
-2. Review the adapted content.
-3. Run the rule-based Evaluation Report.
-4. Copy the platform-specific title, body, and tags.
-5. Open the official platform publish page.
-6. Manually paste, review, and submit inside the platform.
+---
 
-## Publish Page Handoff
+## Personal-Use Publishing Workflow
 
-The web demo provides two actions on each platform preview card:
-
-- `打开发布页`: opens the configured official creator or publishing page.
-- `复制后打开`: copies the prepared platform content, then opens the official
-  creator or publishing page.
-
-The handoff status is intentionally separate from Mock Publish. Opening a
-platform page means the user is ready to continue manually; it does not mark the
-project as published.
-
-The UI shows this safety reminder:
-
-```text
-将打开平台官方发布页，你仍需要手动粘贴、检查并确认发布。
-This opens the official publishing page. You still need to review and submit manually.
+```
+Generate → Review → Evaluate → Export → Copy → Open official publish page → Manual submit
 ```
 
-## Checklist
+### Step-by-step
 
-For each platform, verify:
+1. **Generate** — Select target platforms and generate platform-specific content
+   through the PlatformAdapter pipeline.
 
-- Title copied.
-- Body copied.
-- Tags copied, when available.
-- Official publish page opened.
-- Human still reviews and confirms submission.
+2. **Review** — Inspect the rendered preview, validation warnings, and metadata
+   for each platform. The Trace Viewer shows the full adaptation steps.
 
-## Explicit Non-Goals
+3. **Evaluate** — Run rule-based evaluation to check consistency, compliance,
+   and readability scores.
 
-OmniFlow-AI currently does not support:
+4. **Export** — Export a publish package as Markdown or JSON. Draft and rejected
+   project exports include status/warning metadata for inspection before manual
+   publishing.
 
-- Automatic login.
-- Automatic submit.
-- Cookie-based publishing.
-- Token-based publishing.
-- Bypassing platform review or platform rules.
-- Backend real publishing.
-- One-click real publishing.
+5. **Copy** — Copy platform-specific title, body, and tags using the copy buttons
+   on each PreviewCard. The "复制内容" button copies the full platform text;
+   "复制标题" and "复制标签" copy individual fields.
 
-Mock Publish remains a simulation for demo and testing. Official publish page
-handoff is a manual productivity helper for personal use.
+6. **Open official publish page** — Use the "打开发布页" or "复制后打开" button
+   to open the target platform's official publishing interface. The "复制后打开"
+   button copies content first, then opens the page.
+
+7. **Manual submit** — Paste the copied content into the platform's official
+   publishing form, review, and submit manually. OmniFlow-AI does not perform
+   automatic submission.
+
+---
+
+## What This Workflow Supports
+
+| Feature | Description |
+|---------|-------------|
+| Multi-platform generation | WeChat, Zhihu, Bilibili, Xiaohongshu, Douyin |
+| Content review | Rendered previews, validation warnings, trace viewer |
+| Rule-based evaluation | Consistency, compliance, readability scores |
+| Publish package export | Markdown / JSON export with metadata |
+| Copy actions | Per-field copy (title, body, tags) and full content copy |
+| Publish handoff | Open official publish page; optional copy-before-open |
+| Manual publish checklist | Track copy and handoff status per platform |
+
+---
+
+## What This Workflow Does NOT Do
+
+- ❌ Does not automatically submit content to real platforms.
+- ❌ Does not store cookies, account passwords, or session tokens.
+- ❌ Does not use Playwright, Selenium, or any browser automation.
+- ❌ Does not bypass platform official publishing workflows.
+- ❌ Does not mark content as "published" on real platforms.
+- ❌ Does not claim to support real automatic publishing.
+
+The platform official publish page is opened in a new browser tab using
+`window.open` with `noopener,noreferrer` for security. No credentials, tokens,
+or API calls are sent — the page is presented for the user to complete manually.
+
+---
+
+## Related Documentation
+
+- [API Design](./api-design.md) — API reference for export and handoff endpoints.
+- [README](../README.md) — Project overview and quick start.
+- [Architecture](./architecture.md) — PlatformAdapter and system design.

@@ -63,6 +63,9 @@ export default function Home() {
   const [isTraceVisible, setIsTraceVisible] = useState(false);
   const [isTraceLoading, setIsTraceLoading] = useState(false);
   const [traceError, setTraceError] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportMessage, setExportMessage] = useState("");
+  const [exportError, setExportError] = useState("");
 
   const trimmedTitle = title.trim();
   const trimmedSourceText = sourceText.trim();
@@ -112,6 +115,9 @@ export default function Home() {
       setReviewError("");
       setEvaluationReport(null);
       setEvaluationError("");
+      setExportMessage("");
+      setExportError("");
+      setIsExporting(false);
       setStep("result");
     } catch (err) {
       setErrorMessage(getErrorMessage(err, "生成预览失败，请稍后重试"));
@@ -141,7 +147,66 @@ export default function Home() {
     setIsTraceVisible(false);
     setIsTraceLoading(false);
     setTraceError("");
+    setIsExporting(false);
+    setExportMessage("");
+    setExportError("");
   }, []);
+
+  const downloadFile = useCallback((filename: string, content: string, type: string) => {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }, []);
+
+  const handleExportMarkdown = useCallback(async () => {
+    if (!projectId) return;
+
+    setIsExporting(true);
+    setExportMessage("");
+    setExportError("");
+
+    try {
+      const response = await api.getPublishPackageMarkdown(projectId);
+      downloadFile(
+        `omniflow-publish-package-${projectId}.md`,
+        response.data,
+        "text/markdown;charset=utf-8",
+      );
+      setExportMessage("Markdown 发布包已下载");
+    } catch (err) {
+      setExportError(getErrorMessage(err, "导出 Markdown 失败，请稍后重试"));
+    } finally {
+      setIsExporting(false);
+    }
+  }, [downloadFile, projectId]);
+
+  const handleExportJson = useCallback(async () => {
+    if (!projectId) return;
+
+    setIsExporting(true);
+    setExportMessage("");
+    setExportError("");
+
+    try {
+      const response = await api.getPublishPackage(projectId);
+      downloadFile(
+        `omniflow-publish-package-${projectId}.json`,
+        JSON.stringify(response.data, null, 2),
+        "application/json;charset=utf-8",
+      );
+      setExportMessage("JSON 发布包已下载");
+    } catch (err) {
+      setExportError(getErrorMessage(err, "导出 JSON 失败，请稍后重试"));
+    } finally {
+      setIsExporting(false);
+    }
+  }, [downloadFile, projectId]);
 
   const handleViewTrace = useCallback(async () => {
     if (!runId) return;
@@ -399,6 +464,61 @@ export default function Home() {
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {projectTitle} — 已为 {previews.length} 个平台生成预览
               </p>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200">
+                    Publish Package Export
+                  </h3>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Generate, review, evaluate, export, copy, then manually publish.
+                  </p>
+                  {reviewStatus !== "approved" && (
+                    <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+                      当前状态为 {reviewStatus}，导出包会标记为 draft。
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void handleExportMarkdown()}
+                    disabled={isExporting || previews.length === 0}
+                    className={`rounded-lg px-5 py-2 text-sm font-semibold text-white transition ${
+                      isExporting || previews.length === 0
+                        ? "cursor-not-allowed bg-gray-300 dark:bg-gray-600"
+                        : "bg-slate-900 hover:bg-slate-800 dark:bg-sky-500 dark:hover:bg-sky-400"
+                    }`}
+                  >
+                    导出 Markdown
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleExportJson()}
+                    disabled={isExporting || previews.length === 0}
+                    className={`rounded-lg border px-5 py-2 text-sm font-semibold transition ${
+                      isExporting || previews.length === 0
+                        ? "cursor-not-allowed border-gray-200 text-gray-400 dark:border-gray-700"
+                        : "border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-900"
+                    }`}
+                  >
+                    导出 JSON
+                  </button>
+                </div>
+              </div>
+              {(exportMessage || exportError) && (
+                <p
+                  className={`mt-3 text-xs ${
+                    exportError
+                      ? "text-red-600 dark:text-red-400"
+                      : "text-green-700 dark:text-green-300"
+                  }`}
+                >
+                  {exportError || exportMessage}
+                </p>
+              )}
             </div>
 
             <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">

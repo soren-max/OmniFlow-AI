@@ -25,9 +25,11 @@ Manually adapting content for each platform is time-consuming, error-prone, and 
 - Mock publish                    ✅
 - Human Review API gate           ✅
 - Rule-based Evaluation reports   ✅
+- Markdown / JSON publish package export ✅
 - LangGraph workflow skeleton     ✅
 - Agent Run / Step trace records  ✅
 - PostgreSQL persistence          ✅
+- Optional DeepSeek LLM provider ✅
 - Polished demo dashboard UI      ✅
 - Official publish page handoff   ✅
 - FastAPI backend                 ✅
@@ -130,8 +132,17 @@ demo-quality and is not a production SaaS console.
 Projects, platform preview results, mock publish results, Agent Runs, and Agent
 Steps are persisted through SQLAlchemy and Alembic-managed PostgreSQL tables.
 Real publishing and full graph-native Human Review remain future work. Evaluation
-reports are currently deterministic and rule-based; they do not call a real LLM
-and are not a substitute for production content safety review.
+reports are currently deterministic and rule-based; they are not a substitute
+for production content safety review.
+
+### Optional LLM Provider
+
+The backend includes an optional LLM provider layer for personal-use beta
+experiments. The default provider is `mock`, so the app still runs without API
+keys and CI never calls a real model. Set `LLM_PROVIDER=deepseek` and provide
+`LLM_API_KEY` locally to use DeepSeek through the optional
+`POST /api/projects/{id}/llm-generate` endpoint. The existing deterministic
+preview and `agent-preview` workflow remain unchanged.
 
 ### Official Publish Page Handoff
 
@@ -149,6 +160,17 @@ generation moves a project to `pending`; reviewers can approve or reject the
 project through API endpoints. Mock Publish requires `approved`, and `rejected`
 projects are blocked. This is currently an API-level safety boundary; a future
 LangGraph PR can model it as a human-in-the-loop workflow node.
+
+### Publish Package Export
+
+After generating previews, users can copy platform-specific titles, tags, or
+full content from each Preview Card. They can also export a full publish package
+as Markdown or JSON for manual publishing. This supports the real-use workflow:
+Generate -> Review -> Evaluate -> Export -> Copy -> Manual publish.
+
+This is not automatic publishing. The export feature does not use Cookies,
+Tokens, browser automation, or real platform publishing APIs. See
+[docs/real-use-workflow.md](docs/real-use-workflow.md).
 
 ---
 
@@ -269,6 +291,37 @@ trace, or use the web demo's Trace Viewer after generating a preview:
 curl http://localhost:8000/api/runs/{run_id}
 curl http://localhost:8000/api/runs/{run_id}/steps
 ```
+
+### Optional LLM generation
+
+By default this endpoint uses the mock provider. To call DeepSeek locally, copy
+`.env.example` to `.env`, set `LLM_PROVIDER=deepseek`, and add your own
+`LLM_API_KEY`. Do not commit `.env`.
+
+```bash
+curl -X POST http://localhost:8000/api/projects/a1b2c3d4e5f6/llm-generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "platforms": ["wechat", "zhihu", "bilibili", "xiaohongshu", "douyin"],
+    "tone": "professional",
+    "requirements": "适合个人内容运营发布"
+  }'
+```
+
+The response includes structured platform outputs plus a `run_id` for the
+`llm_generation` trace. Trace snapshots include provider/model/usage metadata,
+but never include the API key.
+
+### Export publish package
+
+```bash
+curl http://localhost:8000/api/projects/a1b2c3d4e5f6/export/json
+curl http://localhost:8000/api/projects/a1b2c3d4e5f6/export/markdown
+```
+
+Exports are allowed for draft, approved, and rejected projects. Draft and
+rejected exports include status/warning metadata so a person can inspect before
+manual publishing.
 
 ### Health check
 
@@ -431,10 +484,11 @@ The following features are **explicitly out of scope** for the current stage:
 | Limitation | Status |
 |------------|--------|
 | Real platform publishing | ❌ Not implemented. `adapter.publish()` raises `NotImplementedError`. |
-| LangGraph workflow orchestration | ✅ Minimal deterministic preview skeleton only; no LLM calls. |
+| LangGraph workflow orchestration | ✅ Minimal deterministic preview skeleton only; no LLM calls by default. |
 | Agent Run Trace | ✅ PostgreSQL-backed Agent Run and Agent Step records for the LangGraph preview skeleton, plus a basic web Trace Viewer for demo inspection. |
 | Human Review workflow | ✅ API-level approve/reject gate before Mock Publish. Full LangGraph human-in-the-loop is planned. |
-| Evaluation Reports | ✅ Rule-based preview quality analysis with format, style, consistency, compliance, completeness, overall score, issues, and suggestions. No real LLM calls. |
+| Evaluation Reports | ✅ Rule-based preview quality analysis with format, style, consistency, compliance, completeness, overall score, issues, and suggestions. Not LLM-as-judge. |
+| Optional LLM provider | ✅ DeepSeek can be enabled locally with `LLM_PROVIDER=deepseek` and `LLM_API_KEY`; default remains `mock`. |
 | Authentication / Authorization | ❌ No user system, API keys, or session management. |
 | Database persistence | ✅ Projects, previews, mock publish results, Agent Runs, and Agent Steps are persisted in PostgreSQL. |
 | Review/Evaluation persistence | ✅ Evaluation reports are persisted. Review is currently project-status based; detailed review audit records are planned. |
@@ -449,8 +503,9 @@ The current target is a demo-quality `v0.1.0-alpha` release candidate. See
 checklist, interview demo checklist, known limitations, and pre-tag verification
 steps.
 
-This release does not include real LLM integration, real platform publishing,
-production authentication, or production deployment guarantees.
+This release keeps real LLM use optional and disabled by default. It does not
+include real platform publishing, production authentication, or production
+deployment guarantees.
 
 ---
 

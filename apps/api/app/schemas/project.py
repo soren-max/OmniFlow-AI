@@ -156,3 +156,40 @@ class EvaluationReportResponse(BaseModel):
     issues: list[str] = Field(default_factory=list)
     suggestions: list[str] = Field(default_factory=list)
     created_at: datetime
+
+
+class PublishPackagePlatformContent(BaseModel):
+    """Export-ready content for one platform."""
+
+    platform: str
+    title: str
+    body: str
+    hashtags: list[str] = Field(default_factory=list)
+    summary: str = ""
+    cta: str = ""
+    notes: str = ""
+    copy_text: str
+
+
+class PublishPackageEvaluationSummary(BaseModel):
+    """Export summary for the latest evaluation report."""
+
+    average_score: int | None = None
+    issues: list[str] = Field(default_factory=list)
+    suggestions: list[str] = Field(default_factory=list)
+    message: str | None = None
+
+
+class PublishPackageResponse(BaseModel):
+    """Manual publishing package generated from saved previews."""
+
+    project_id: str
+    title: str
+    created_at: datetime
+    platforms: list[str]
+    platform_contents: list[PublishPackagePlatformContent]
+    review_status: str
+    package_status: str
+    warnings: list[str] = Field(default_factory=list)
+    evaluation_summary: PublishPackageEvaluationSummary
+    exported_at: datetime

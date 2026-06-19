@@ -19,10 +19,20 @@ interface PreviewCardProps {
 /**
  * Displays a single platform preview result.
  * Shows rendered HTML, metadata, and any validation warnings.
+ *
+ * Provides two complementary personal-use workflows:
+ * 1. Copy / Export — copy platform-specific content for manual publishing.
+ * 2. Handoff — open official publish page with optional copy-before-open.
  */
 export function PreviewCard({ preview }: PreviewCardProps) {
   const platformInfo = PLATFORM_OPTIONS.find((p) => p.id === preview.platform);
   const publishLink = getPublishHandoffLink(preview.platform);
+
+  // ── Copy / Export state (from main, PR #20) ──
+  const [copyStatus, setCopyStatus] = useState("");
+  const [copyError, setCopyError] = useState("");
+
+  // ── Handoff state (PR #21) ──
   const [handoffChecklist, setHandoffChecklist] = useState<PublishHandoffChecklist>(
     INITIAL_PUBLISH_HANDOFF_CHECKLIST,
   );
@@ -32,8 +42,32 @@ export function PreviewCard({ preview }: PreviewCardProps) {
   const [handoffMessage, setHandoffMessage] = useState("");
   const [handoffError, setHandoffError] = useState("");
 
+  // ── Copy / Export data (from main, PR #20) ──
+  const hashtags = useMemo(() => {
+    const rawTags = preview.metadata.hashtags ?? preview.metadata.tags;
+    return Array.isArray(rawTags)
+      ? rawTags.map((tag) => String(tag)).filter((tag) => tag.trim().length > 0)
+      : [];
+  }, [preview.metadata]);
+
+  const cta =
+    typeof preview.metadata.call_to_action === "string"
+      ? preview.metadata.call_to_action
+      : "";
+  const copyExportText = [
+    preview.title,
+    "",
+    preview.content,
+    "",
+    hashtags.map((tag) => `#${tag}`).join(" "),
+    cta,
+  ]
+    .filter((part) => part.trim().length > 0)
+    .join("\n");
+
+  // ── Handoff data (PR #21) ──
   const previewTags = useMemo(() => getPreviewTags(preview.metadata), [preview.metadata]);
-  const copyText = useMemo(
+  const handoffCopyText = useMemo(
     () =>
       buildManualPublishText({
         title: preview.title,
@@ -43,6 +77,7 @@ export function PreviewCard({ preview }: PreviewCardProps) {
     [preview.content, preview.metadata, preview.title],
   );
 
+  // ── Handoff actions (PR #21) ──
   function markPageOpened() {
     setHandoffChecklist((current) => ({ ...current, pageOpened: true }));
     setHandoffStatus("handoff_opened");
@@ -54,20 +89,17 @@ export function PreviewCard({ preview }: PreviewCardProps) {
       setHandoffError("当前平台暂未配置官方发布页入口。");
       return;
     }
-
     window.open(publishLink.officialPublishUrl, "_blank", "noopener,noreferrer");
     markPageOpened();
   }
 
   async function copyBeforeOpen() {
     setHandoffError("");
-
     try {
       if (!navigator.clipboard) {
         throw new Error("当前浏览器不支持 Clipboard API");
       }
-
-      await navigator.clipboard.writeText(copyText);
+      await navigator.clipboard.writeText(handoffCopyText);
       setHandoffChecklist({
         titleCopied: true,
         bodyCopied: true,
@@ -83,6 +115,24 @@ export function PreviewCard({ preview }: PreviewCardProps) {
     }
   }
 
+  // ── Copy / Export actions (from main, PR #20) ──
+  async function copyToClipboard(label: string, value: string): Promise<void> {
+    setCopyStatus("");
+    setCopyError("");
+    if (!navigator.clipboard) {
+      setCopyError("当前浏览器不支持 Clipboard API");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopyStatus(`${label}已复制`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "复制失败";
+      setCopyError(message);
+    }
+  }
+
+  // ── Handoff checklist (PR #21) ──
   const checklistItems = [
     { label: "标题已复制", done: handoffChecklist.titleCopied },
     { label: "正文已复制", done: handoffChecklist.bodyCopied },
@@ -113,7 +163,45 @@ export function PreviewCard({ preview }: PreviewCardProps) {
         </div>
       )}
 
-      {/* Manual publish handoff */}
+      {/* Copy / Export actions — from main (PR #20) */}
+      <div className="border-b border-slate-200 bg-white px-5 py-3 dark:border-slate-800 dark:bg-slate-950">
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => void copyToClipboard("内容", copyExportText)}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-900"
+          >
+            复制内容
+          </button>
+          <button
+            type="button"
+            onClick={() => void copyToClipboard("标题", preview.title)}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-900"
+          >
+            复制标题
+          </button>
+          <button
+            type="button"
+            onClick={() => void copyToClipboard("标签", hashtags.join(" "))}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-900"
+          >
+            复制标签
+          </button>
+        </div>
+        {(copyStatus || copyError) && (
+          <p
+            className={`mt-2 text-xs ${
+              copyError
+                ? "text-red-600 dark:text-red-400"
+                : "text-green-700 dark:text-green-300"
+            }`}
+          >
+            {copyError || copyStatus}
+          </p>
+        )}
+      </div>
+
+      {/* Publish handoff actions — PR #21 */}
       <div className="border-b border-slate-200 bg-slate-50 px-5 py-4 dark:border-slate-800 dark:bg-slate-900/70">
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -150,7 +238,7 @@ export function PreviewCard({ preview }: PreviewCardProps) {
             </button>
             <button
               type="button"
-              onClick={copyBeforeOpen}
+              onClick={() => void copyBeforeOpen()}
               disabled={!publishLink}
               className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-slate-300"
             >

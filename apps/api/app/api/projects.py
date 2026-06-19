@@ -8,7 +8,14 @@ from __future__ import annotations
 from typing import Any
 
 from api.app.adapters.registry import AdapterNotFoundError
+from api.app.adapters.types import Platform
 from api.app.agents.runner import run_content_preview_workflow
+from api.app.llm.schemas import LLMProjectGenerateRequest, LLMProjectGenerateResponse
+from api.app.llm.service import (
+    LLMProviderConfigurationError,
+    LLMProviderError,
+    LLMService,
+)
 from api.app.schemas.common import ApiResponse, ok
 from api.app.schemas.project import (
     ContentProjectResponse,
@@ -16,6 +23,7 @@ from api.app.schemas.project import (
     EvaluationReportResponse,
     GeneratePreviewRequest,
     PlatformPreviewResponse,
+    PublishPackageResponse,
     PublishProjectRequest,
     PublishProjectResponse,
 )
@@ -24,6 +32,7 @@ from api.app.services.project_service import (
     ContentProjectService,
     EvaluationNotFoundError,
     EvaluationRequiresPreviewError,
+    ExportRequiresPreviewError,
     InvalidPlatformError,
     ProjectNotApprovedError,
     ProjectNotFoundError,
@@ -31,11 +40,13 @@ from api.app.services.project_service import (
     UnsupportedPublishModeError,
 )
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import PlainTextResponse
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 # Singleton service instance (will be replaced with DI in future)
 _service = ContentProjectService()
+_llm_service = LLMService()
 
 
 @router.post("", response_model=ApiResponse[ContentProjectResponse], status_code=201)
@@ -150,6 +161,128 @@ async def generate_agent_preview(
         target_platforms=body.platforms,
     )
     return ok(dict(state))
+
+
+@router.get("/{project_id}/export", response_model=ApiResponse[PublishPackageResponse])
+async def export_publish_package(project_id: str) -> ApiResponse[dict[str, Any]]:
+    """Return a JSON publish package for manual platform publishing."""
+    try:
+        return ok(_service.build_publish_package(project_id))
+    except ProjectNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "PROJECT_NOT_FOUND",
+                "message": f"Project not found: {project_id}",
+                "details": {"project_id": project_id},
+            },
+        )
+    except ExportRequiresPreviewError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "EXPORT_REQUIRES_PREVIEW",
+                "message": str(exc),
+                "details": {"project_id": exc.project_id},
+            },
+        )
+
+
+@router.get("/{project_id}/export/json", response_model=ApiResponse[PublishPackageResponse])
+async def export_publish_package_json(project_id: str) -> ApiResponse[dict[str, Any]]:
+    """Return the same JSON publish package through an explicit export path."""
+    return await export_publish_package(project_id)
+
+
+@router.get("/{project_id}/export/markdown", response_class=PlainTextResponse)
+async def export_publish_package_markdown(project_id: str) -> PlainTextResponse:
+    """Return a Markdown publish package for manual platform publishing."""
+    try:
+        markdown = _service.build_publish_package_markdown(project_id)
+        return PlainTextResponse(markdown, media_type="text/markdown; charset=utf-8")
+    except ProjectNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "PROJECT_NOT_FOUND",
+                "message": f"Project not found: {project_id}",
+                "details": {"project_id": project_id},
+            },
+        )
+    except ExportRequiresPreviewError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "EXPORT_REQUIRES_PREVIEW",
+                "message": str(exc),
+                "details": {"project_id": exc.project_id},
+            },
+        )
+
+
+@router.post(
+    "/{project_id}/llm-generate",
+    response_model=ApiResponse[LLMProjectGenerateResponse],
+)
+async def generate_llm_content(
+    project_id: str,
+    body: LLMProjectGenerateRequest,
+) -> ApiResponse[LLMProjectGenerateResponse]:
+    """Generate optional provider-backed platform content for a project."""
+    try:
+        for platform in body.platforms:
+            Platform(platform)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "INVALID_PLATFORM",
+                "message": str(exc),
+                "details": {
+                    "valid_platforms": [
+                        platform.value for platform in _service.supported_platforms()
+                    ],
+                },
+            },
+        )
+
+    try:
+        project = _service.get_project(project_id)
+        return ok(
+            _llm_service.generate_for_project(
+                project=project,
+                target_platforms=body.platforms,
+                tone=body.tone,
+                requirements=body.requirements,
+            )
+        )
+    except LLMProviderConfigurationError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "LLM_PROVIDER_NOT_CONFIGURED",
+                "message": str(exc),
+                "details": {"project_id": project_id},
+            },
+        )
+    except ProjectNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "PROJECT_NOT_FOUND",
+                "message": f"Project not found: {project_id}",
+                "details": {"project_id": project_id},
+            },
+        )
+    except LLMProviderError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "code": "LLM_PROVIDER_ERROR",
+                "message": str(exc),
+                "details": {"project_id": project_id},
+            },
+        )
 
 
 @router.post(
