@@ -25,9 +25,10 @@ Each `agent-preview` execution now creates a PostgreSQL-backed Agent Run trace. 
 LangGraph node is wrapped by the telemetry trace layer and writes an Agent Step
 with status, input/output snapshots, latency, and errors. Trace schemas,
 repository access, and service transitions are centralized in
-`apps/api/app/telemetry/`. Human Review is currently an API-level gate before
-Mock Publish. Evaluation is currently rule-based and service-level; real
-publishing remains future work.
+`apps/api/app/telemetry/`. The web demo can display the generated `run_id` and a
+basic Trace Viewer for the run and step records. Human Review is currently an
+API-level gate before Mock Publish. Evaluation is currently rule-based and
+service-level; real publishing remains future work.
 
 ## Current Trace Flow
 
@@ -51,6 +52,10 @@ The runner adds `run_id` to workflow state. API callers can inspect records with
 
 - `GET /api/runs/{run_id}`
 - `GET /api/runs/{run_id}/steps`
+
+The Next.js demo flow surfaces the `run_id` after preview generation and loads
+these endpoints on demand in a basic Trace Viewer. The viewer is intended for
+interview and local demo visibility, not full production observability.
 
 Preview and Mock Publish will later be incorporated into the same trace history
 when the workflow expands beyond the deterministic preview skeleton.
@@ -129,5 +134,6 @@ Source Content / Idea
 
 The full Agent workflow is still out of scope. The current implementation includes
 only the deterministic LangGraph preview skeleton plus PostgreSQL-backed trace
-records. Real LLM calls, Prompt Engineering, RAG, full graph-native Human Review,
-LLM-as-judge Evaluation, and real publishing are not implemented.
+records and a basic web Trace Viewer. Real LLM calls, Prompt Engineering, RAG,
+full graph-native Human Review, LLM-as-judge Evaluation, and real publishing are
+not implemented.

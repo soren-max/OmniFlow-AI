@@ -30,6 +30,30 @@ export type ReviewStatus = "pending" | "approved" | "rejected";
 /** Agent run status */
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 
+/** Persisted Agent Run trace record */
+export interface AgentRun {
+  run_id: string;
+  project_id: string;
+  workflow_name: string;
+  status: AgentRunStatus;
+  started_at?: string;
+  finished_at?: string | null;
+  total_latency_ms?: number | null;
+  error_message?: string | null;
+}
+
+/** Persisted Agent Step trace record */
+export interface AgentStep {
+  step_id: string;
+  run_id: string;
+  node_name: string;
+  status: AgentRunStatus;
+  latency_ms?: number | null;
+  error_message?: string | null;
+  started_at?: string;
+  finished_at?: string | null;
+}
+
 /** Evaluation scores */
 export interface EvaluationScores {
   format_score: number;
@@ -90,6 +114,18 @@ export interface GeneratePreviewResponse {
   project_title: string;
   previews: ProjectPreviewItem[];
   generated_at: string;
+}
+
+/** Response from the deterministic Agent preview workflow */
+export interface AgentPreviewResponse {
+  run_id: string | null;
+  project_id: string;
+  source_title: string;
+  source_content: string;
+  target_platforms: string[];
+  status: string;
+  errors: string[];
+  previews: Record<string, ProjectPreviewItem>;
 }
 
 /** Request body for mock publishing a project */

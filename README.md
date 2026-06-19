@@ -115,6 +115,9 @@ input/output snapshots, latency, and errors.
 The backend includes AgentRun and AgentStep data models plus a database-backed
 `TraceService` centralized in `apps/api/app/telemetry/`. The LangGraph preview
 skeleton records node execution traces for the experimental `agent-preview` path.
+The web demo can display the returned `run_id` and load a basic Agent Trace Viewer
+with run metadata and per-node step status, latency, and errors. This viewer is
+demo-level observability, not a production tracing platform.
 Projects, platform preview results, mock publish results, Agent Runs, and Agent
 Steps are persisted through SQLAlchemy and Alembic-managed PostgreSQL tables.
 Real publishing and full graph-native Human Review remain future work. Evaluation
@@ -242,7 +245,7 @@ curl -X POST http://localhost:8000/api/projects/a1b2c3d4e5f6/agent-preview \
 ```
 
 The response includes workflow state and `run_id`. Use that id to inspect the
-trace:
+trace, or use the web demo's Trace Viewer after generating a preview:
 
 ```bash
 curl http://localhost:8000/api/runs/{run_id}
@@ -411,7 +414,7 @@ The following features are **explicitly out of scope** for the current stage:
 |------------|--------|
 | Real platform publishing | ❌ Not implemented. `adapter.publish()` raises `NotImplementedError`. |
 | LangGraph workflow orchestration | ✅ Minimal deterministic preview skeleton only; no LLM calls. |
-| Agent Run Trace | ✅ PostgreSQL-backed Agent Run and Agent Step records for the LangGraph preview skeleton. |
+| Agent Run Trace | ✅ PostgreSQL-backed Agent Run and Agent Step records for the LangGraph preview skeleton, plus a basic web Trace Viewer for demo inspection. |
 | Human Review workflow | ✅ API-level approve/reject gate before Mock Publish. Full LangGraph human-in-the-loop is planned. |
 | Evaluation Reports | ✅ Rule-based preview quality analysis with format, style, consistency, compliance, completeness, overall score, issues, and suggestions. No real LLM calls. |
 | Authentication / Authorization | ❌ No user system, API keys, or session management. |
