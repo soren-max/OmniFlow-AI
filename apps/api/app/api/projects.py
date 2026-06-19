@@ -8,7 +8,14 @@ from __future__ import annotations
 from typing import Any
 
 from api.app.adapters.registry import AdapterNotFoundError
+from api.app.adapters.types import Platform
 from api.app.agents.runner import run_content_preview_workflow
+from api.app.llm.schemas import LLMProjectGenerateRequest, LLMProjectGenerateResponse
+from api.app.llm.service import (
+    LLMProviderConfigurationError,
+    LLMProviderError,
+    LLMService,
+)
 from api.app.schemas.common import ApiResponse, ok
 from api.app.schemas.project import (
     ContentProjectResponse,
@@ -39,6 +46,7 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 # Singleton service instance (will be replaced with DI in future)
 _service = ContentProjectService()
+_llm_service = LLMService()
 
 
 @router.post("", response_model=ApiResponse[ContentProjectResponse], status_code=201)
@@ -208,6 +216,71 @@ async def export_publish_package_markdown(project_id: str) -> PlainTextResponse:
                 "code": "EXPORT_REQUIRES_PREVIEW",
                 "message": str(exc),
                 "details": {"project_id": exc.project_id},
+            },
+        )
+
+
+@router.post(
+    "/{project_id}/llm-generate",
+    response_model=ApiResponse[LLMProjectGenerateResponse],
+)
+async def generate_llm_content(
+    project_id: str,
+    body: LLMProjectGenerateRequest,
+) -> ApiResponse[LLMProjectGenerateResponse]:
+    """Generate optional provider-backed platform content for a project."""
+    try:
+        for platform in body.platforms:
+            Platform(platform)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "INVALID_PLATFORM",
+                "message": str(exc),
+                "details": {
+                    "valid_platforms": [
+                        platform.value for platform in _service.supported_platforms()
+                    ],
+                },
+            },
+        )
+
+    try:
+        project = _service.get_project(project_id)
+        return ok(
+            _llm_service.generate_for_project(
+                project=project,
+                target_platforms=body.platforms,
+                tone=body.tone,
+                requirements=body.requirements,
+            )
+        )
+    except LLMProviderConfigurationError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "LLM_PROVIDER_NOT_CONFIGURED",
+                "message": str(exc),
+                "details": {"project_id": project_id},
+            },
+        )
+    except ProjectNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "PROJECT_NOT_FOUND",
+                "message": f"Project not found: {project_id}",
+                "details": {"project_id": project_id},
+            },
+        )
+    except LLMProviderError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "code": "LLM_PROVIDER_ERROR",
+                "message": str(exc),
+                "details": {"project_id": project_id},
             },
         )
 

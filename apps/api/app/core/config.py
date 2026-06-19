@@ -34,6 +34,13 @@ class Settings(BaseSettings):
         alias="REDIS_URL",
     )
 
+    # Optional LLM provider
+    llm_provider: str = Field(default="mock", alias="LLM_PROVIDER")
+    llm_api_key: str = Field(default="", alias="LLM_API_KEY")
+    llm_base_url: str = Field(default="https://api.deepseek.com", alias="LLM_BASE_URL")
+    llm_model: str = Field(default="deepseek-v4-flash", alias="LLM_MODEL")
+    llm_timeout_seconds: float = Field(default=30, alias="LLM_TIMEOUT_SECONDS")
+
     @property
     def is_development(self) -> bool:
         return self.app_env == "development"
