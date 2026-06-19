@@ -5,7 +5,7 @@ import { ContentEditor } from "@/components/ContentEditor";
 import { PlatformSelector } from "@/components/PlatformSelector";
 import { PreviewCard } from "@/components/PreviewCard";
 import { TraceViewer } from "@/components/TraceViewer";
-import { api, ApiError } from "@/lib/api";
+import { api, getErrorMessage } from "@/lib/api";
 import type {
   AgentRun,
   AgentStep,
@@ -64,8 +64,14 @@ export default function Home() {
   const [isTraceLoading, setIsTraceLoading] = useState(false);
   const [traceError, setTraceError] = useState("");
 
+  const trimmedTitle = title.trim();
+  const trimmedSourceText = sourceText.trim();
+  const titleValidationMessage =
+    trimmedTitle.length > 0 && trimmedTitle.length < 2 ? "标题至少 2 个字符" : "";
+  const sourceTextValidationMessage =
+    trimmedSourceText.length > 0 && trimmedSourceText.length < 20 ? "正文至少 20 个字符" : "";
   const canSubmit =
-    title.trim().length > 0 && sourceText.trim().length > 0 && selectedPlatforms.length > 0;
+    trimmedTitle.length >= 2 && trimmedSourceText.length >= 20 && selectedPlatforms.length > 0;
 
   const handleSubmit = useCallback(async () => {
     if (!canSubmit) return;
@@ -76,8 +82,8 @@ export default function Home() {
     try {
       // Step 1: Create project
       const projectResp = await api.post<ProjectResponse>("/api/projects", {
-        title: title.trim(),
-        source_text: sourceText.trim(),
+        title: trimmedTitle,
+        source_text: trimmedSourceText,
       });
       const project = projectResp.data;
 
@@ -108,18 +114,10 @@ export default function Home() {
       setEvaluationError("");
       setStep("result");
     } catch (err) {
-      if (err instanceof ApiError) {
-        setErrorMessage(
-          err.status === 0
-            ? "无法连接到后端服务，请确认后端已启动"
-            : `请求失败 (${err.status}): ${err.message}`,
-        );
-      } else {
-        setErrorMessage("发生未知错误，请稍后重试");
-      }
+      setErrorMessage(getErrorMessage(err, "生成预览失败，请稍后重试"));
       setStep("error");
     }
-  }, [title, sourceText, selectedPlatforms, canSubmit]);
+  }, [trimmedTitle, trimmedSourceText, selectedPlatforms, canSubmit]);
 
   const handleReset = useCallback(() => {
     setStep("input");
@@ -160,11 +158,7 @@ export default function Home() {
       setTraceRun(runResp.data);
       setTraceSteps(stepsResp.data);
     } catch (err) {
-      if (err instanceof ApiError) {
-        setTraceError(`Trace 加载失败 (${err.status}): ${err.message}`);
-      } else {
-        setTraceError("Trace 加载失败，请稍后重试");
-      }
+      setTraceError(getErrorMessage(err, "Trace 加载失败，请稍后重试"));
     } finally {
       setIsTraceLoading(false);
     }
@@ -180,11 +174,7 @@ export default function Home() {
       const response = await api.createEvaluation(projectId);
       setEvaluationReport(response.data);
     } catch (err) {
-      if (err instanceof ApiError) {
-        setEvaluationError(`评测失败 (${err.status}): ${err.message}`);
-      } else {
-        setEvaluationError("评测失败，请稍后重试");
-      }
+      setEvaluationError(getErrorMessage(err, "评测失败，请稍后重试"));
     } finally {
       setIsEvaluating(false);
     }
@@ -201,11 +191,7 @@ export default function Home() {
       const response = await api.approveProject(projectId);
       setReviewStatus(response.data.status as ReviewStatus);
     } catch (err) {
-      if (err instanceof ApiError) {
-        setReviewError(`审核失败 (${err.status}): ${err.message}`);
-      } else {
-        setReviewError("审核失败，请稍后重试");
-      }
+      setReviewError(getErrorMessage(err, "审核失败，请稍后重试"));
     } finally {
       setIsReviewing(false);
     }
@@ -223,11 +209,7 @@ export default function Home() {
       setReviewStatus(response.data.status as ReviewStatus);
       setPublishResults([]);
     } catch (err) {
-      if (err instanceof ApiError) {
-        setReviewError(`审核失败 (${err.status}): ${err.message}`);
-      } else {
-        setReviewError("审核失败，请稍后重试");
-      }
+      setReviewError(getErrorMessage(err, "审核失败，请稍后重试"));
     } finally {
       setIsReviewing(false);
     }
@@ -250,11 +232,7 @@ export default function Home() {
       });
       setPublishResults(publishResp.data.results);
     } catch (err) {
-      if (err instanceof ApiError) {
-        setPublishError(`发布失败 (${err.status}): ${err.message}`);
-      } else {
-        setPublishError("发布失败，请稍后重试");
-      }
+      setPublishError(getErrorMessage(err, "发布失败，请稍后重试"));
     } finally {
       setIsPublishing(false);
     }
@@ -372,6 +350,12 @@ export default function Home() {
                 >
                   生成多平台预览
                 </button>
+                {(titleValidationMessage || sourceTextValidationMessage) && (
+                  <div className="mt-3 space-y-1 text-xs text-amber-700 dark:text-amber-300">
+                    {titleValidationMessage && <p>{titleValidationMessage}</p>}
+                    {sourceTextValidationMessage && <p>{sourceTextValidationMessage}</p>}
+                  </div>
+                )}
               </div>
             </div>
           </div>
