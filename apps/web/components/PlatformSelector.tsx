@@ -33,10 +33,10 @@ export function PlatformSelector({ selected, onChange }: PlatformSelectorProps) 
               key={opt.id}
               type="button"
               onClick={() => toggle(opt.id)}
-              className={`rounded-xl border-2 p-4 text-left transition-all ${
+              className={`rounded-xl border p-4 text-left shadow-sm transition-all ${
                 isActive
-                  ? "border-blue-500 bg-blue-50 shadow-sm dark:border-blue-400 dark:bg-blue-900/20"
-                  : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800"
+                  ? "border-sky-300 bg-sky-50 ring-2 ring-sky-100 dark:border-sky-700 dark:bg-sky-950/30 dark:ring-sky-950"
+                  : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
               }`}
             >
               <div className="flex items-center gap-2">
@@ -47,14 +47,16 @@ export function PlatformSelector({ selected, onChange }: PlatformSelectorProps) 
                 <span
                   className={`text-sm font-semibold ${
                     isActive
-                      ? "text-blue-700 dark:text-blue-300"
-                      : "text-gray-800 dark:text-gray-200"
+                      ? "text-sky-700 dark:text-sky-300"
+                      : "text-slate-800 dark:text-slate-200"
                   }`}
                 >
                   {opt.label}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{opt.description}</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                {opt.description}
+              </p>
             </button>
           );
         })}
