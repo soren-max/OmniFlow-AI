@@ -31,6 +31,7 @@ Manually adapting content for each platform is time-consuming, error-prone, and 
 - PostgreSQL persistence          ✅
 - Optional DeepSeek LLM provider ✅
 - Polished demo dashboard UI      ✅
+- Official publish page handoff   ✅
 - FastAPI backend                 ✅
 - Next.js frontend                ✅
 - Enterprise repository standards ✅
@@ -142,6 +143,15 @@ keys and CI never calls a real model. Set `LLM_PROVIDER=deepseek` and provide
 `LLM_API_KEY` locally to use DeepSeek through the optional
 `POST /api/projects/{id}/llm-generate` endpoint. The existing deterministic
 preview and `agent-preview` workflow remain unchanged.
+
+### Official Publish Page Handoff
+
+Preview cards include a manual handoff helper for personal use. Users can copy
+the prepared platform content and open the corresponding official creator page,
+then paste, review, and submit manually inside that platform. This is not
+automatic publishing, does not use cookies or tokens, and does not change the
+meaning of Mock Publish. See [docs/real-use-workflow.md](docs/real-use-workflow.md)
+for the current manual workflow and safety limits.
 
 ### Human Review Gate
 
