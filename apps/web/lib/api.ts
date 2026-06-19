@@ -25,9 +25,9 @@ interface ApiResponse<T> {
 }
 
 interface ApiErrorPayload {
-  code: string;
+  code?: string;
   message: string;
-  details?: Record<string, unknown> | null;
+  details?: unknown;
 }
 
 interface ApiEnvelope<T> {
@@ -46,28 +46,108 @@ function isApiEnvelope<T>(body: unknown): body is ApiEnvelope<T> {
   );
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeErrorPayload(body: unknown, fallbackMessage: string): ApiErrorPayload {
+  if (isApiEnvelope<unknown>(body) && body.error) {
+    return body.error;
+  }
+
+  if (!isRecord(body)) {
+    return { message: fallbackMessage };
+  }
+
+  const detail = body.detail;
+  if (isRecord(detail)) {
+    return {
+      code: typeof detail.code === "string" ? detail.code : undefined,
+      message: typeof detail.message === "string" ? detail.message : fallbackMessage,
+      details: "details" in detail ? detail.details : undefined,
+    };
+  }
+
+  if (Array.isArray(detail)) {
+    return {
+      code: "VALIDATION_ERROR",
+      message: "Request validation failed",
+      details: { errors: detail },
+    };
+  }
+
+  if (typeof detail === "string") {
+    return { message: detail };
+  }
+
+  return { message: fallbackMessage };
+}
+
+function summarizeDetails(details: unknown): string {
+  if (!details) {
+    return "";
+  }
+
+  if (isRecord(details) && Array.isArray(details.errors)) {
+    const messages = details.errors
+      .map((error) => {
+        if (!isRecord(error)) {
+          return "";
+        }
+        const location = Array.isArray(error.loc) ? error.loc.join(".") : "";
+        const message = typeof error.msg === "string" ? error.msg : "";
+        return [location, message].filter(Boolean).join(": ");
+      })
+      .filter(Boolean);
+
+    if (messages.length > 0) {
+      return messages.join("; ");
+    }
+  }
+
+  if (typeof details === "string") {
+    return details;
+  }
+
+  try {
+    return JSON.stringify(details);
+  } catch {
+    return "";
+  }
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
   const url = `${API_BASE_URL}${path}`;
-  const response = await fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-    ...options,
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+      ...options,
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "Network request failed";
+    throw new ApiError(
+      0,
+      "无法连接到后端服务，或浏览器跨域请求被阻止",
+      "NETWORK_ERROR",
+      { url, reason },
+    );
+  }
 
   const responseBody = (await response.json().catch(() => null)) as unknown;
 
   if (!response.ok) {
-    if (isApiEnvelope<T>(responseBody) && responseBody.error) {
-      throw new ApiError(
-        response.status,
-        responseBody.error.message,
-        responseBody.error.code,
-        responseBody.error.details ?? null,
-      );
-    }
-    throw new ApiError(response.status, response.statusText);
+    const errorPayload = normalizeErrorPayload(responseBody, response.statusText);
+    throw new ApiError(
+      response.status,
+      errorPayload.message,
+      errorPayload.code,
+      errorPayload.details ?? null,
+    );
   }
 
   if (isApiEnvelope<T>(responseBody)) {
@@ -96,11 +176,28 @@ export class ApiError extends Error {
     public status: number,
     message: string,
     public code?: string,
-    public details?: Record<string, unknown> | null,
+    public details?: unknown,
   ) {
     super(message);
     this.name = "ApiError";
   }
+}
+
+export function getErrorMessage(error: unknown, fallbackMessage: string): string {
+  if (error instanceof ApiError) {
+    const statusText = error.status === 0 ? "网络错误" : `HTTP ${error.status}`;
+    const codeText = error.code ? ` / ${error.code}` : "";
+    const detailText = summarizeDetails(error.details);
+    return detailText
+      ? `${statusText}${codeText}: ${error.message}；${detailText}`
+      : `${statusText}${codeText}: ${error.message}`;
+  }
+
+  if (error instanceof Error && error.message) {
+    return `${fallbackMessage}: ${error.message}`;
+  }
+
+  return fallbackMessage;
 }
 
 export const api = {
