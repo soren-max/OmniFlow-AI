@@ -170,6 +170,40 @@ export interface EvaluationReportResponse {
   created_at: string;
 }
 
+/** Export-ready content for one platform */
+export interface PublishPackagePlatformContent {
+  platform: string;
+  title: string;
+  body: string;
+  hashtags: string[];
+  summary: string;
+  cta: string;
+  notes: string;
+  copy_text: string;
+}
+
+/** Evaluation summary included in publish package exports */
+export interface PublishPackageEvaluationSummary {
+  average_score: number | null;
+  issues: string[];
+  suggestions: string[];
+  message?: string | null;
+}
+
+/** Manual publish package export */
+export interface PublishPackageResponse {
+  project_id: string;
+  title: string;
+  created_at: string;
+  platforms: string[];
+  platform_contents: PublishPackagePlatformContent[];
+  review_status: string;
+  package_status: string;
+  warnings: string[];
+  evaluation_summary: PublishPackageEvaluationSummary;
+  exported_at: string;
+}
+
 /** Platform display info */
 export interface PlatformOption {
   id: Platform;

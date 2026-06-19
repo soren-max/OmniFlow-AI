@@ -23,6 +23,7 @@ from api.app.schemas.project import (
     EvaluationReportResponse,
     GeneratePreviewRequest,
     PlatformPreviewResponse,
+    PublishPackageResponse,
     PublishProjectRequest,
     PublishProjectResponse,
 )
@@ -31,6 +32,7 @@ from api.app.services.project_service import (
     ContentProjectService,
     EvaluationNotFoundError,
     EvaluationRequiresPreviewError,
+    ExportRequiresPreviewError,
     InvalidPlatformError,
     ProjectNotApprovedError,
     ProjectNotFoundError,
@@ -38,6 +40,7 @@ from api.app.services.project_service import (
     UnsupportedPublishModeError,
 )
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import PlainTextResponse
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -158,6 +161,63 @@ async def generate_agent_preview(
         target_platforms=body.platforms,
     )
     return ok(dict(state))
+
+
+@router.get("/{project_id}/export", response_model=ApiResponse[PublishPackageResponse])
+async def export_publish_package(project_id: str) -> ApiResponse[dict[str, Any]]:
+    """Return a JSON publish package for manual platform publishing."""
+    try:
+        return ok(_service.build_publish_package(project_id))
+    except ProjectNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "PROJECT_NOT_FOUND",
+                "message": f"Project not found: {project_id}",
+                "details": {"project_id": project_id},
+            },
+        )
+    except ExportRequiresPreviewError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "EXPORT_REQUIRES_PREVIEW",
+                "message": str(exc),
+                "details": {"project_id": exc.project_id},
+            },
+        )
+
+
+@router.get("/{project_id}/export/json", response_model=ApiResponse[PublishPackageResponse])
+async def export_publish_package_json(project_id: str) -> ApiResponse[dict[str, Any]]:
+    """Return the same JSON publish package through an explicit export path."""
+    return await export_publish_package(project_id)
+
+
+@router.get("/{project_id}/export/markdown", response_class=PlainTextResponse)
+async def export_publish_package_markdown(project_id: str) -> PlainTextResponse:
+    """Return a Markdown publish package for manual platform publishing."""
+    try:
+        markdown = _service.build_publish_package_markdown(project_id)
+        return PlainTextResponse(markdown, media_type="text/markdown; charset=utf-8")
+    except ProjectNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "PROJECT_NOT_FOUND",
+                "message": f"Project not found: {project_id}",
+                "details": {"project_id": project_id},
+            },
+        )
+    except ExportRequiresPreviewError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "EXPORT_REQUIRES_PREVIEW",
+                "message": str(exc),
+                "details": {"project_id": exc.project_id},
+            },
+        )
 
 
 @router.post(
