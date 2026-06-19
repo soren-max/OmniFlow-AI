@@ -11,6 +11,8 @@ POST  /api/projects                → Create a content project
 GET   /api/projects/{id}           → Get a content project by id
 POST  /api/projects/{id}/preview   → Generate platform previews
 POST  /api/projects/{id}/agent-preview → Run experimental LangGraph preview skeleton
+POST  /api/projects/{id}/review/approve → Approve previews for mock publish
+POST  /api/projects/{id}/review/reject  → Reject previews and block mock publish
 POST  /api/projects/{id}/publish   → Mock publish selected platforms
 GET   /api/runs/{run_id}           → Get an Agent Run trace record
 GET   /api/runs/{run_id}/steps     → List Agent Step trace records for a run
@@ -23,6 +25,11 @@ migrations. Previews are generated using the PlatformAdapter mock adapters. Mock
 publish is supported through `mock_publish`; no real platform API is called.
 LangGraph is present only as a deterministic preview workflow skeleton and does
 not call a real LLM.
+
+Human Review is currently implemented as an API-level publish gate. Generating
+previews moves a project to `pending`; reviewers can move it to `approved` or
+`rejected`. Mock Publish requires `approved`. This is not yet a LangGraph
+human-in-the-loop node.
 
 Agent Run and Agent Step endpoints are read-only. They expose persisted trace
 records written by the deterministic LangGraph `agent-preview` workflow. Trace
@@ -60,6 +67,8 @@ The API will follow RESTful conventions:
 | GET | /api/projects/{id} | Get project details and saved previews |
 | POST | /api/projects/{id}/preview | Generate previews for target platforms |
 | POST | /api/projects/{id}/agent-preview | Run experimental deterministic LangGraph preview |
+| POST | /api/projects/{id}/review/approve | Approve a project for mock publish |
+| POST | /api/projects/{id}/review/reject | Reject a project and block mock publish |
 | POST | /api/projects/{id}/publish | Mock publish selected target platforms |
 
 ### Agent Runs
@@ -132,9 +141,21 @@ managed by the telemetry module, and stored in PostgreSQL.
 }
 ```
 
-Only `mode: "mock"` is supported. `mode: "real"` returns
-`REAL_PUBLISH_NOT_SUPPORTED` because real publishing requires future Human Review,
-explicit user authorization, and secure platform credentials.
+Only `mode: "mock"` is supported. Mock Publish requires project status
+`approved`; `pending` and `rejected` projects return `PROJECT_REVIEW_REQUIRED`.
+`mode: "real"` returns `REAL_PUBLISH_NOT_SUPPORTED` because real publishing
+requires explicit user authorization and secure platform credentials.
+
+### Human Review — `POST /api/projects/{id}/review/approve`
+
+Approves generated previews for Mock Publish and returns the updated project with
+`status: "approved"`.
+
+### Human Review — `POST /api/projects/{id}/review/reject`
+
+Rejects generated previews and returns the updated project with
+`status: "rejected"`. Rejected projects cannot be mock-published unless they are
+approved again.
 
 `GET /api/runs/{run_id}` returns an `AgentRun` record. `GET /api/runs/{run_id}/steps`
 returns the ordered `AgentStep` records for that run. Both use the standard response
@@ -366,6 +387,7 @@ Current error codes include:
 - `ADAPTER_EXECUTION_FAILED`
 - `REAL_PUBLISH_NOT_SUPPORTED`
 - `UNSUPPORTED_PUBLISH_MODE`
+- `PROJECT_REVIEW_REQUIRED`
 - `AGENT_RUN_NOT_FOUND`
 - `VALIDATION_ERROR`
 - `HTTP_ERROR`
@@ -376,5 +398,6 @@ Current error codes include:
 - **Project update/delete** — only create, read, preview, and mock publish exist.
 - **Listing all projects** — no paginated list endpoint.
 - **Authentication/authorization** — no user or API key system.
-- **Human Review workflow** — approval/rejection is not implemented yet.
+- **Full Human Review workflow** — API-level approve/reject gating exists, but
+  graph-native human-in-the-loop review is not implemented yet.
 - **Evaluation Report** — quality scoring and report persistence are not implemented yet.

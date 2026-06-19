@@ -25,8 +25,8 @@ Each `agent-preview` execution now creates a PostgreSQL-backed Agent Run trace. 
 LangGraph node is wrapped by the telemetry trace layer and writes an Agent Step
 with status, input/output snapshots, latency, and errors. Trace schemas,
 repository access, and service transitions are centralized in
-`apps/api/app/telemetry/`. Human Review, Evaluation, and real publishing remain
-future work.
+`apps/api/app/telemetry/`. Human Review is currently an API-level gate before
+Mock Publish; Evaluation and real publishing remain future work.
 
 ## Current Trace Flow
 
@@ -53,6 +53,19 @@ The runner adds `run_id` to workflow state. API callers can inspect records with
 
 Preview and Mock Publish will later be incorporated into the same trace history
 when the workflow expands beyond the deterministic preview skeleton.
+
+## Current Human Review Gate
+
+The current implementation adds Human Review as a project-level API gate:
+
+- Preview generation sets project status to `pending`.
+- `POST /api/projects/{id}/review/approve` sets status to `approved`.
+- `POST /api/projects/{id}/review/reject` sets status to `rejected`.
+- `POST /api/projects/{id}/publish` only allows Mock Publish when status is
+  `approved`.
+
+This is intentionally not a full LangGraph human-in-the-loop node yet. A future
+workflow PR can move the same approval boundary into the Agent graph.
 
 ## Intended Workflow (Future)
 
@@ -108,11 +121,12 @@ Source Content / Idea
 - Every Agent run must be recorded (steps, tool calls, latency, errors). The
   current skeleton records run/step status, snapshots, latency, and errors in
   PostgreSQL; token usage is still future work because no LLM is called.
-- Human approval is mandatory before any publish action.
+- Human approval is mandatory before Mock Publish in the current API gate. Full
+  graph-native Human Review is future work.
 
 ## Not in MVP
 
 The full Agent workflow is still out of scope. The current implementation includes
 only the deterministic LangGraph preview skeleton plus PostgreSQL-backed trace
-records. Real LLM calls, Prompt Engineering, RAG, Human Review, Evaluation, and
-real publishing are not implemented.
+records. Real LLM calls, Prompt Engineering, RAG, full graph-native Human Review,
+Evaluation, and real publishing are not implemented.

@@ -17,11 +17,15 @@ export type Platform = "wechat" | "zhihu" | "bilibili" | "xiaohongshu" | "douyin
 /** Content status */
 export type ContentStatus =
   | "draft"
+  | "pending"
   | "adapted"
   | "reviewing"
   | "approved"
   | "rejected"
   | "published";
+
+/** Human review status used by the current API gate */
+export type ReviewStatus = "pending" | "approved" | "rejected";
 
 /** Agent run status */
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
