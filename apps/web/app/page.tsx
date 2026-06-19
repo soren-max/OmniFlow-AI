@@ -12,6 +12,7 @@ import type {
   GeneratePreviewResponse,
   PlatformPublishResultItem,
   EvaluationReportResponse,
+  ReviewStatus,
 } from "@/types";
 
 type PageStep = "input" | "loading" | "result" | "error";
@@ -29,6 +30,9 @@ export default function Home() {
   const [publishResults, setPublishResults] = useState<PlatformPublishResultItem[]>([]);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishError, setPublishError] = useState("");
+  const [reviewStatus, setReviewStatus] = useState<ReviewStatus>("pending");
+  const [isReviewing, setIsReviewing] = useState(false);
+  const [reviewError, setReviewError] = useState("");
   const [evaluationReport, setEvaluationReport] = useState<EvaluationReportResponse | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evaluationError, setEvaluationError] = useState("");
@@ -62,6 +66,8 @@ export default function Home() {
       setPublishPlatforms(selectedPlatforms);
       setPublishResults([]);
       setPublishError("");
+      setReviewStatus("pending");
+      setReviewError("");
       setEvaluationReport(null);
       setEvaluationError("");
       setStep("result");
@@ -89,6 +95,9 @@ export default function Home() {
     setPublishResults([]);
     setPublishError("");
     setIsPublishing(false);
+    setReviewStatus("pending");
+    setReviewError("");
+    setIsReviewing(false);
     setEvaluationReport(null);
     setEvaluationError("");
     setIsEvaluating(false);
@@ -114,8 +123,55 @@ export default function Home() {
     }
   }, [projectId]);
 
+  const handleApprove = useCallback(async () => {
+    if (!projectId) return;
+
+    setIsReviewing(true);
+    setReviewError("");
+    setPublishError("");
+
+    try {
+      const response = await api.approveProject(projectId);
+      setReviewStatus(response.data.status as ReviewStatus);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setReviewError(`审核失败 (${err.status}): ${err.message}`);
+      } else {
+        setReviewError("审核失败，请稍后重试");
+      }
+    } finally {
+      setIsReviewing(false);
+    }
+  }, [projectId]);
+
+  const handleReject = useCallback(async () => {
+    if (!projectId) return;
+
+    setIsReviewing(true);
+    setReviewError("");
+    setPublishError("");
+
+    try {
+      const response = await api.rejectProject(projectId);
+      setReviewStatus(response.data.status as ReviewStatus);
+      setPublishResults([]);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setReviewError(`审核失败 (${err.status}): ${err.message}`);
+      } else {
+        setReviewError("审核失败，请稍后重试");
+      }
+    } finally {
+      setIsReviewing(false);
+    }
+  }, [projectId]);
+
   const handleMockPublish = useCallback(async () => {
     if (!projectId || publishPlatforms.length === 0) return;
+    if (reviewStatus !== "approved") {
+      setPublishError("Mock Publish 前需要先通过人工审核");
+      return;
+    }
 
     setIsPublishing(true);
     setPublishError("");
@@ -135,7 +191,7 @@ export default function Home() {
     } finally {
       setIsPublishing(false);
     }
-  }, [projectId, publishPlatforms]);
+  }, [projectId, publishPlatforms, reviewStatus]);
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -345,6 +401,47 @@ export default function Home() {
             </div>
 
             <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+              <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                      Human Review
+                    </h3>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      当前状态：{reviewStatus}
+                    </p>
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleReject}
+                      disabled={isReviewing || reviewStatus === "rejected"}
+                      className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
+                        isReviewing || reviewStatus === "rejected"
+                          ? "cursor-not-allowed border-gray-200 text-gray-400 dark:border-gray-700"
+                          : "border-red-200 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/30"
+                      }`}
+                    >
+                      Reject
+                    </button>
+                    <button
+                      onClick={handleApprove}
+                      disabled={isReviewing || reviewStatus === "approved"}
+                      className={`rounded-lg px-4 py-2 text-sm font-medium text-white transition ${
+                        isReviewing || reviewStatus === "approved"
+                          ? "cursor-not-allowed bg-gray-300 dark:bg-gray-600"
+                          : "bg-green-600 hover:bg-green-700 active:bg-green-800"
+                      }`}
+                    >
+                      Approve
+                    </button>
+                  </div>
+                </div>
+
+                {reviewError && (
+                  <p className="mt-3 text-xs text-red-600 dark:text-red-400">{reviewError}</p>
+                )}
+              </div>
+
               <h3 className="mb-4 text-base font-semibold text-gray-800 dark:text-gray-200">
                 Mock Publish
               </h3>
@@ -352,9 +449,11 @@ export default function Home() {
               <div className="mt-5 flex justify-center">
                 <button
                   onClick={handleMockPublish}
-                  disabled={isPublishing || publishPlatforms.length === 0}
+                  disabled={
+                    isPublishing || publishPlatforms.length === 0 || reviewStatus !== "approved"
+                  }
                   className={`rounded-xl px-8 py-2.5 text-sm font-semibold text-white shadow-sm transition ${
-                    isPublishing || publishPlatforms.length === 0
+                    isPublishing || publishPlatforms.length === 0 || reviewStatus !== "approved"
                       ? "cursor-not-allowed bg-gray-300 dark:bg-gray-600"
                       : "bg-gray-900 hover:bg-gray-800 active:bg-black dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white"
                   }`}

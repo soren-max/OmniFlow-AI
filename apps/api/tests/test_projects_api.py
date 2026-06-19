@@ -351,9 +351,16 @@ class TestMockPublish:
         assert preview_resp.status_code == 200
         return project_id
 
+    async def _approve_project(self, client: AsyncClient, project_id: str) -> None:
+        """Approve a project for mock publish."""
+        response = await client.post(f"/api/projects/{project_id}/review/approve")
+        assert response.status_code == 200
+        assert _unwrap_success(response)["status"] == "approved"
+
     async def test_mock_publish_single_platform_success(self, client: AsyncClient) -> None:
         """Mock publish should succeed for one platform."""
         project_id = await self._create_project_with_previews(client)
+        await self._approve_project(client, project_id)
         response = await client.post(
             f"/api/projects/{project_id}/publish",
             json={"target_platforms": ["douyin"], "mode": "mock"},
@@ -373,6 +380,7 @@ class TestMockPublish:
     async def test_mock_publish_all_platforms_success(self, client: AsyncClient) -> None:
         """Mock publish should succeed for all five platforms."""
         project_id = await self._create_project_with_previews(client)
+        await self._approve_project(client, project_id)
         response = await client.post(
             f"/api/projects/{project_id}/publish",
             json={
@@ -391,6 +399,7 @@ class TestMockPublish:
     async def test_mock_publish_invalid_platform(self, client: AsyncClient) -> None:
         """Invalid publish platforms should return a structured error."""
         project_id = await self._create_project_with_previews(client)
+        await self._approve_project(client, project_id)
         response = await client.post(
             f"/api/projects/{project_id}/publish",
             json={"target_platforms": ["unknown_platform"], "mode": "mock"},
@@ -402,6 +411,7 @@ class TestMockPublish:
     async def test_mock_publish_empty_platforms(self, client: AsyncClient) -> None:
         """Empty target_platforms should fail validation."""
         project_id = await self._create_project_with_previews(client)
+        await self._approve_project(client, project_id)
         response = await client.post(
             f"/api/projects/{project_id}/publish",
             json={"target_platforms": [], "mode": "mock"},
@@ -413,6 +423,7 @@ class TestMockPublish:
     async def test_real_publish_not_supported(self, client: AsyncClient) -> None:
         """Real publish mode should be explicitly blocked."""
         project_id = await self._create_project_with_previews(client)
+        await self._approve_project(client, project_id)
         response = await client.post(
             f"/api/projects/{project_id}/publish",
             json={"target_platforms": ["wechat"], "mode": "real"},
@@ -428,6 +439,66 @@ class TestMockPublish:
             "/api/projects/bad-id/publish",
             json={"target_platforms": ["wechat"], "mode": "mock"},
         )
+
+        assert response.status_code == 404
+        _assert_error(response, "PROJECT_NOT_FOUND")
+
+    async def test_preview_moves_project_to_pending_review(self, client: AsyncClient) -> None:
+        """Generated previews should require human review before publish."""
+        project_id = await self._create_project_with_previews(client)
+
+        response = await client.get(f"/api/projects/{project_id}")
+
+        assert response.status_code == 200
+        assert _unwrap_success(response)["status"] == "pending"
+
+    async def test_approve_project_enables_mock_publish(self, client: AsyncClient) -> None:
+        """Approved projects should pass the publish gate."""
+        project_id = await self._create_project_with_previews(client)
+
+        approval_response = await client.post(f"/api/projects/{project_id}/review/approve")
+        publish_response = await client.post(
+            f"/api/projects/{project_id}/publish",
+            json={"target_platforms": ["wechat"], "mode": "mock"},
+        )
+
+        assert approval_response.status_code == 200
+        assert _unwrap_success(approval_response)["status"] == "approved"
+        assert publish_response.status_code == 200
+        assert _unwrap_success(publish_response)["results"][0]["status"] == "success"
+
+    async def test_reject_project_blocks_mock_publish(self, client: AsyncClient) -> None:
+        """Rejected projects should not be publishable."""
+        project_id = await self._create_project_with_previews(client)
+
+        reject_response = await client.post(f"/api/projects/{project_id}/review/reject")
+        publish_response = await client.post(
+            f"/api/projects/{project_id}/publish",
+            json={"target_platforms": ["wechat"], "mode": "mock"},
+        )
+
+        assert reject_response.status_code == 200
+        assert _unwrap_success(reject_response)["status"] == "rejected"
+        assert publish_response.status_code == 409
+        error = _assert_error(publish_response, "PROJECT_REVIEW_REQUIRED")
+        assert error["details"]["status"] == "rejected"
+
+    async def test_pending_project_cannot_mock_publish(self, client: AsyncClient) -> None:
+        """Pending review projects should not publish until approved."""
+        project_id = await self._create_project_with_previews(client)
+
+        response = await client.post(
+            f"/api/projects/{project_id}/publish",
+            json={"target_platforms": ["wechat"], "mode": "mock"},
+        )
+
+        assert response.status_code == 409
+        error = _assert_error(response, "PROJECT_REVIEW_REQUIRED")
+        assert error["details"]["status"] == "pending"
+
+    async def test_approve_nonexistent_project_returns_404(self, client: AsyncClient) -> None:
+        """Approving a missing project should return PROJECT_NOT_FOUND."""
+        response = await client.post("/api/projects/bad-id/review/approve")
 
         assert response.status_code == 404
         _assert_error(response, "PROJECT_NOT_FOUND")
@@ -521,3 +592,16 @@ class TestEvaluation:
 
         assert response.status_code == 404
         _assert_error(response, "EVALUATION_NOT_FOUND")
+
+    async def test_evaluation_for_missing_project_returns_404(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Evaluation requests for missing projects should return PROJECT_NOT_FOUND."""
+        post_response = await client.post("/api/projects/bad-id/evaluation")
+        get_response = await client.get("/api/projects/bad-id/evaluation")
+
+        assert post_response.status_code == 404
+        assert get_response.status_code == 404
+        _assert_error(post_response, "PROJECT_NOT_FOUND")
+        _assert_error(get_response, "PROJECT_NOT_FOUND")

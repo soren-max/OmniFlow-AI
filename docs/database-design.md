@@ -14,6 +14,7 @@ Persisted in this PR:
 - `EvaluationReport`
 - `AgentRun`
 - `AgentStep`
+- Project-level Human Review status via `content_projects.status`
 
 Planned for later PRs:
 
@@ -39,6 +40,17 @@ status
 created_at
 updated_at
 ```
+
+`status` is currently used as the Human Review gate for Mock Publish:
+
+- `created` after project creation
+- `pending` after preview generation
+- `approved` after reviewer approval
+- `rejected` after reviewer rejection
+
+This is intentionally project-level state. A dedicated `ReviewRecord` table can
+be added later when the review workflow needs reviewer identity, comments, or an
+audit history.
 
 ### platform_contents
 

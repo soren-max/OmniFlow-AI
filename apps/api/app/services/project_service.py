@@ -18,6 +18,10 @@ from api.app.repositories.project_repository import (
     ProjectRepository,
 )
 
+REVIEW_PENDING = "pending"
+REVIEW_APPROVED = "approved"
+REVIEW_REJECTED = "rejected"
+
 
 class ProjectNotFoundError(LookupError):
     """Raised when a requested project does not exist."""
@@ -57,6 +61,18 @@ class UnsupportedPublishModeError(ValueError):
     def __init__(self, mode: str) -> None:
         self.mode = mode
         super().__init__(f"Unsupported publish mode: {mode!r}")
+
+
+class ProjectNotApprovedError(PermissionError):
+    """Raised when a project has not passed human review before publish."""
+
+    def __init__(self, project_id: str, status: str) -> None:
+        self.project_id = project_id
+        self.status = status
+        super().__init__(
+            f"Project {project_id} must be approved before mock publish. "
+            f"Current status: {status}."
+        )
 
 
 class EvaluationRequiresPreviewError(ValueError):
@@ -226,6 +242,10 @@ class ContentProjectService:
             # Persist preview to the project record
             self._repository.add_preview(project_id, preview_item)
 
+        updated_project = self._repository.update_status(project_id, REVIEW_PENDING)
+        if updated_project is None:
+            raise ProjectNotFoundError(project_id)
+
         from datetime import datetime, timezone
 
         return {
@@ -234,6 +254,14 @@ class ContentProjectService:
             "previews": preview_results,
             "generated_at": datetime.now(timezone.utc),
         }
+
+    def approve_project(self, project_id: str) -> dict[str, Any]:
+        """Mark a project as approved for mock publish."""
+        return self._set_review_status(project_id, REVIEW_APPROVED)
+
+    def reject_project(self, project_id: str) -> dict[str, Any]:
+        """Mark a project as rejected and block mock publish."""
+        return self._set_review_status(project_id, REVIEW_REJECTED)
 
     def publish_project(
         self,
@@ -253,6 +281,9 @@ class ContentProjectService:
             raise UnsupportedPublishModeError(mode)
 
         project = self.get_project(project_id)
+        if project["status"] != REVIEW_APPROVED:
+            raise ProjectNotApprovedError(project_id, str(project["status"]))
+
         publish_results: list[dict[str, Any]] = []
 
         for platform_str in target_platforms:
@@ -322,6 +353,12 @@ class ContentProjectService:
         if report is None:
             raise EvaluationNotFoundError(project_id)
         return report
+
+    def _set_review_status(self, project_id: str, status: str) -> dict[str, Any]:
+        updated_project = self._repository.update_status(project_id, status)
+        if updated_project is None:
+            raise ProjectNotFoundError(project_id)
+        return updated_project.to_dict()
 
     def _content_for_publish(
         self,

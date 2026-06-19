@@ -3,8 +3,7 @@
 ## Current Stage (Phase 3: Deterministic LangGraph Skeleton)
 
 The project is in **Phase 3** with Repository Bootstrap, adapter-driven Preview,
-Mock Publish, rule-based Evaluation Report, Agent Trace foundation, and a
-deterministic LangGraph preview skeleton.
+Mock Publish, Agent Trace foundation, and a deterministic LangGraph preview skeleton.
 The adapter-driven preview and mock publish pipeline is operational:
 
 - FastAPI backend with a health check endpoint.
@@ -16,14 +15,18 @@ The adapter-driven preview and mock publish pipeline is operational:
 - **Adapter registry** for platform → class resolution.
 - Shared adapter data types: Platform, PlatformContent, ValidationResult, PublishResult, etc.
 - **Deterministic LangGraph preview workflow skeleton** in `apps/api/app/agents/`.
-- **Rule-based evaluation reports** in `apps/api/app/evaluators/`.
 - **PostgreSQL-backed Agent Run and Agent Step trace records** in `apps/api/app/telemetry/`.
 - **SQLAlchemy repositories and Alembic migrations** for projects, platform preview
-  results, mock publish results, Evaluation Reports, Agent Runs, and Agent Steps.
+  results, mock publish results, Agent Runs, and Agent Steps.
+- **Human Review API gate** using project statuses `pending`, `approved`, and
+  `rejected` before Mock Publish.
+- **Rule-based Evaluation** for saved previews, including format, style,
+  consistency, compliance, completeness, overall score, issues, and suggestions.
 
-No LLM-backed Agent workflow, Human Review workflow, LLM-as-judge evaluation, or
-real platform publish implementations exist yet. The current publishing path is
-mock-only.
+No LLM-backed Agent workflow or real platform publish implementations exist yet.
+The current Evaluation implementation is deterministic and rule-based; it does
+not call a real LLM and is not a production content safety review system. The
+current publishing path is mock-only.
 
 ## Intended Architecture (Future)
 
@@ -80,9 +83,12 @@ mock-only.
   workflow nodes do not persist trace records directly.
 - **Repository-backed persistence**: services call repositories that write core records
   through SQLAlchemy models; routes stay thin and do not perform database queries.
-- **Rule-based evaluation first**: evaluation scores are deterministic checks over
-  generated previews and adapter validation output, not LLM-as-judge.
-- **Human-in-the-loop planned**: Real publishing will require explicit approval before execution, but the approval workflow is not implemented yet.
+- **Human Review API gate first**: Preview generation moves a project to
+  `pending`; approve/reject endpoints update the review status; Mock Publish
+  requires `approved`. A LangGraph human-in-the-loop node is future work.
+- **Rule-based Evaluation first**: Evaluation runs in the service/evaluator layer
+  against saved preview data. It is deterministic and does not call a model
+  provider.
 
 ## LangGraph Workflow Skeleton
 
@@ -116,23 +122,10 @@ through `GET /api/runs/{run_id}` and `GET /api/runs/{run_id}/steps`. The
 `POST /api/projects/{id}/agent-preview` response includes `run_id` so callers can
 inspect the workflow trace.
 
-Projects, platform preview results, mock publish results, Evaluation Reports,
+Projects, platform preview results, mock publish results, Evaluation reports,
 Agent Runs, and Agent Steps are covered by the current PostgreSQL persistence
-layer. ReviewRecord persistence is planned for later Human Review work.
-
-## Rule-Based Evaluation
-
-`apps/api/app/evaluators/rule_based.py` scores saved previews across:
-
-- `format_score`
-- `style_score`
-- `consistency_score`
-- `compliance_score`
-- `completeness_score`
-- `overall_score`
-
-Reports also include platform-level issues and suggestions. This baseline is
-deterministic and does not call an LLM.
+layer. Detailed ReviewRecord persistence is planned for later Human Review audit
+history.
 
 ## PlatformAdapter Flow
 
@@ -142,7 +135,10 @@ Current preview and mock publish execution are adapter-driven:
 2. The service resolves each identifier to the `Platform` enum.
 3. The adapter registry returns the matching adapter.
 4. For preview, the adapter transforms content, validates it, and builds a mock preview.
-5. For mock publish, the service calls `adapter.mock_publish` and returns simulated results.
+5. Preview completion sets the project review status to `pending`.
+6. A reviewer must approve the project through the Human Review API gate.
+7. For mock publish, the service verifies `approved`, calls `adapter.mock_publish`,
+   and returns simulated results.
 
 Adding a platform should stay localized to the adapter layer: add a concrete adapter, add the platform enum value, register the adapter, and update tests and UI platform options. Business services should continue resolving adapters through the registry instead of branching on platform names.
 
@@ -154,8 +150,9 @@ credential handling, and trace logging are in place.
 
 - LLM-backed LangGraph agent orchestration.
 - **Real platform API integration** (mock adapters and mock publish are done).
-- Human Review workflow and ReviewRecord persistence.
-- LLM-as-judge evaluation.
+- Full LangGraph human-in-the-loop workflow and ReviewRecord persistence.
+- Evaluation system.
+- EvaluationReport persistence.
 - OpenTelemetry instrumentation.
 - Async task queue (Celery / Dramatiq).
 - Vector search (Qdrant).

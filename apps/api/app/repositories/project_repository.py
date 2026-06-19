@@ -207,6 +207,15 @@ class ProjectRepository:
                 "created_at": model.created_at,
             }
 
+    def update_status(self, project_id: str, status: str) -> ProjectRecord | None:
+        """Update a project's workflow status."""
+        with self._session_scope() as session:
+            project = session.get(ContentProjectModel, project_id)
+            if project is None:
+                return None
+            project.status = status
+        return self.find_by_id(project_id)
+
     def delete(self, project_id: str) -> bool:
         """Remove a project from the store. Returns True if deleted."""
         with self._session_scope() as session:

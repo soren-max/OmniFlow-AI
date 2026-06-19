@@ -8,6 +8,7 @@
 
 import type {
   EvaluationReportResponse,
+  ProjectResponse,
   PublishProjectRequest,
   PublishProjectResponse,
 } from "@/types";
@@ -140,6 +141,18 @@ export const api = {
   getEvaluation(projectId: string): Promise<ApiResponse<EvaluationReportResponse>> {
     return request<EvaluationReportResponse>(`/api/projects/${projectId}/evaluation`, {
       method: "GET",
+    });
+  },
+
+  approveProject(projectId: string): Promise<ApiResponse<ProjectResponse>> {
+    return request<ProjectResponse>(`/api/projects/${projectId}/review/approve`, {
+      method: "POST",
+    });
+  },
+
+  rejectProject(projectId: string): Promise<ApiResponse<ProjectResponse>> {
+    return request<ProjectResponse>(`/api/projects/${projectId}/review/reject`, {
+      method: "POST",
     });
   },
 };
