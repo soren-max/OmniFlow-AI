@@ -29,6 +29,7 @@ Manually adapting content for each platform is time-consuming, error-prone, and 
 - Agent Run / Step trace records  ✅
 - PostgreSQL persistence          ✅
 - Polished demo dashboard UI      ✅
+- Official publish page handoff   ✅
 - FastAPI backend                 ✅
 - Next.js frontend                ✅
 - Enterprise repository standards ✅
@@ -131,6 +132,15 @@ Steps are persisted through SQLAlchemy and Alembic-managed PostgreSQL tables.
 Real publishing and full graph-native Human Review remain future work. Evaluation
 reports are currently deterministic and rule-based; they do not call a real LLM
 and are not a substitute for production content safety review.
+
+### Official Publish Page Handoff
+
+Preview cards include a manual handoff helper for personal use. Users can copy
+the prepared platform content and open the corresponding official creator page,
+then paste, review, and submit manually inside that platform. This is not
+automatic publishing, does not use cookies or tokens, and does not change the
+meaning of Mock Publish. See [docs/real-use-workflow.md](docs/real-use-workflow.md)
+for the current manual workflow and safety limits.
 
 ### Human Review Gate
 

@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"TODO: Add frontend tests in a future PR\" && exit 0",
+    "test": "node --test lib/publishHandoff.test.ts",
     "format": "prettier --write \"app/**/*.{ts,tsx,css,md}\" \"components/**/*.{ts,tsx,md}\" \"hooks/**/*.{ts,tsx}\" \"lib/**/*.{ts,tsx}\" \"types/**/*.{ts,tsx}\" \"*.{js,json,ts}\""
   },
   "dependencies": {
