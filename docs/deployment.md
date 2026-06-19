@@ -111,9 +111,9 @@ Create a future migration:
 make db-migrate message="describe change"
 ```
 
-The current migration creates tables for projects, platform preview results,
-mock publish tasks/results, Agent Runs, and Agent Steps. Human Review and
-Evaluation persistence are planned follow-up work.
+The current migrations create tables for projects, platform preview results,
+mock publish tasks/results, rule-based Evaluation Reports, Agent Runs, and Agent
+Steps. Human Review persistence remains a planned follow-up.
 
 ## Not in MVP
 
@@ -122,7 +122,8 @@ Evaluation persistence are planned follow-up work.
 - Database migration automation in CI.
 - Real LLM provider integration.
 - Real platform publishing.
-- Human Review and Evaluation persistence.
+- Human Review persistence.
+- LLM-as-judge evaluation and dataset report automation.
 - Health check monitoring integration.
 - Log aggregation and alerting.
 - Secrets management (HashiCorp Vault, AWS Secrets Manager).

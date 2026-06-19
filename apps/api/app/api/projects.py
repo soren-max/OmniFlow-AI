@@ -13,6 +13,7 @@ from api.app.schemas.common import ApiResponse, ok
 from api.app.schemas.project import (
     ContentProjectResponse,
     CreateContentProjectRequest,
+    EvaluationReportResponse,
     GeneratePreviewRequest,
     PlatformPreviewResponse,
     PublishProjectRequest,
@@ -21,6 +22,8 @@ from api.app.schemas.project import (
 from api.app.services.project_service import (
     AdapterExecutionError,
     ContentProjectService,
+    EvaluationNotFoundError,
+    EvaluationRequiresPreviewError,
     InvalidPlatformError,
     ProjectNotApprovedError,
     ProjectNotFoundError,
@@ -147,6 +150,59 @@ async def generate_agent_preview(
         target_platforms=body.platforms,
     )
     return ok(dict(state))
+
+
+@router.post(
+    "/{project_id}/evaluation",
+    response_model=ApiResponse[EvaluationReportResponse],
+)
+async def create_evaluation(project_id: str) -> ApiResponse[dict[str, Any]]:
+    """Create a rule-based content quality evaluation report."""
+    try:
+        return ok(_service.evaluate_project(project_id))
+    except ProjectNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "PROJECT_NOT_FOUND",
+                "message": f"Project not found: {project_id}",
+                "details": {"project_id": project_id},
+            },
+        )
+    except EvaluationRequiresPreviewError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "EVALUATION_REQUIRES_PREVIEW",
+                "message": str(exc),
+                "details": {"project_id": exc.project_id},
+            },
+        )
+
+
+@router.get("/{project_id}/evaluation", response_model=ApiResponse[EvaluationReportResponse])
+async def get_evaluation(project_id: str) -> ApiResponse[dict[str, Any]]:
+    """Return the latest rule-based content quality evaluation report."""
+    try:
+        return ok(_service.get_evaluation(project_id))
+    except ProjectNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "PROJECT_NOT_FOUND",
+                "message": f"Project not found: {project_id}",
+                "details": {"project_id": project_id},
+            },
+        )
+    except EvaluationNotFoundError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "EVALUATION_NOT_FOUND",
+                "message": str(exc),
+                "details": {"project_id": exc.project_id},
+            },
+        )
 
 
 @router.post("/{project_id}/review/approve", response_model=ApiResponse[ContentProjectResponse])

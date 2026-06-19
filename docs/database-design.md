@@ -11,6 +11,7 @@ Persisted in this PR:
 - `ContentProject`
 - `PlatformContent` / preview result rows
 - `PublishTask` / mock publish result rows
+- `EvaluationReport`
 - `AgentRun`
 - `AgentStep`
 - Project-level Human Review status via `content_projects.status`
@@ -18,7 +19,6 @@ Persisted in this PR:
 Planned for later PRs:
 
 - `ReviewRecord`
-- `EvaluationReport`
 - `EvaluationResult`
 - User feedback and production observability records
 
@@ -101,6 +101,22 @@ message
 metadata_json
 ```
 
+### evaluation_reports
+
+Stores the latest and historical rule-based quality evaluation reports for
+project previews. The current evaluator is deterministic and does not call an
+LLM.
+
+```text
+id
+project_id
+average_score
+platform_scores_json
+issues_json
+suggestions_json
+created_at
+```
+
 ### agent_runs
 
 Stores one deterministic LangGraph preview workflow execution.
@@ -145,6 +161,7 @@ Alembic configuration lives at:
 - `alembic.ini`
 - `alembic/env.py`
 - `alembic/versions/20260618_0001_create_core_persistence_tables.py`
+- `alembic/versions/20260618_0002_create_evaluation_reports.py`
 
 Apply migrations locally:
 
@@ -177,5 +194,6 @@ JSON columns are used for flexible snapshots and adapter payloads:
 - step input/output snapshots
 - tool call placeholders
 
-Review and Evaluation persistence should be added in focused follow-up PRs once
-those modules are present on the target baseline.
+Human Review persistence and richer evaluation artifacts should be added in
+focused follow-up PRs once those modules need reviewer identity, comments,
+datasets, or regression report history.

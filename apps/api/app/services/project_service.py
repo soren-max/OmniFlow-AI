@@ -12,6 +12,7 @@ from api.app.adapters.types import (
     Platform,
     PlatformContent,
 )
+from api.app.evaluators import evaluate_project_previews
 from api.app.repositories.project_repository import (
     ProjectRecord,
     ProjectRepository,
@@ -72,6 +73,22 @@ class ProjectNotApprovedError(PermissionError):
             f"Project {project_id} must be approved before mock publish. "
             f"Current status: {status}."
         )
+
+
+class EvaluationRequiresPreviewError(ValueError):
+    """Raised when evaluation is requested before any preview exists."""
+
+    def __init__(self, project_id: str) -> None:
+        self.project_id = project_id
+        super().__init__(f"Project {project_id} needs at least one preview before evaluation.")
+
+
+class EvaluationNotFoundError(LookupError):
+    """Raised when no evaluation report exists for a project."""
+
+    def __init__(self, project_id: str) -> None:
+        self.project_id = project_id
+        super().__init__(f"Evaluation report not found for project: {project_id}")
 
 
 class ContentProjectService:
@@ -316,6 +333,26 @@ class ContentProjectService:
             "results": publish_results,
             "published_at": datetime.now(timezone.utc),
         }
+
+    def evaluate_project(self, project_id: str) -> dict[str, Any]:
+        """Run rule-based quality evaluation for persisted previews."""
+        project = self.get_project(project_id)
+        if not project.get("previews"):
+            raise EvaluationRequiresPreviewError(project_id)
+
+        report = evaluate_project_previews(project)
+        saved_report = self._repository.add_evaluation_report(project_id, report)
+        if saved_report is None:
+            raise ProjectNotFoundError(project_id)
+        return saved_report
+
+    def get_evaluation(self, project_id: str) -> dict[str, Any]:
+        """Return the latest evaluation report for a project."""
+        self.get_project(project_id)
+        report = self._repository.get_latest_evaluation_report(project_id)
+        if report is None:
+            raise EvaluationNotFoundError(project_id)
+        return report
 
     def _set_review_status(self, project_id: str, status: str) -> dict[str, Any]:
         updated_project = self._repository.update_status(project_id, status)

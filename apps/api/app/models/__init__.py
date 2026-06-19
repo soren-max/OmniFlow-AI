@@ -2,6 +2,7 @@
 
 from api.app.models.project import (
     ContentProjectModel,
+    EvaluationReportModel,
     PlatformContentModel,
     PublishResultModel,
     PublishTaskModel,
@@ -12,6 +13,7 @@ __all__ = [
     "AgentRunModel",
     "AgentStepModel",
     "ContentProjectModel",
+    "EvaluationReportModel",
     "PlatformContentModel",
     "PublishResultModel",
     "PublishTaskModel",

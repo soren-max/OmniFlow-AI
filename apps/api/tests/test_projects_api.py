@@ -502,3 +502,106 @@ class TestMockPublish:
 
         assert response.status_code == 404
         _assert_error(response, "PROJECT_NOT_FOUND")
+
+
+# ── Evaluation ────────────────────────────────────────────────────────────────
+
+
+class TestEvaluation:
+    async def _create_project_with_previews(self, client: AsyncClient) -> str:
+        """Create a project with all five platform previews."""
+        create_resp = await client.post(
+            "/api/projects",
+            json={"title": "Evaluation Test", "source_text": SAMPLE_TEXT},
+        )
+        project_id = str(_unwrap_success(create_resp)["id"])
+        preview_resp = await client.post(
+            f"/api/projects/{project_id}/preview",
+            json={
+                "platforms": ["wechat", "zhihu", "bilibili", "xiaohongshu", "douyin"],
+                "hooks": ["A practical hook"],
+                "tags": ["AI", "content", "workflow"],
+            },
+        )
+        assert preview_resp.status_code == 200
+        return project_id
+
+    async def test_create_evaluation_for_five_platforms(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """POST /evaluation should create rule-based platform scores."""
+        project_id = await self._create_project_with_previews(client)
+
+        response = await client.post(f"/api/projects/{project_id}/evaluation")
+
+        assert response.status_code == 200
+        data = _unwrap_success(response)
+        assert data["project_id"] == project_id
+        assert 0 <= data["average_score"] <= 100
+        assert len(data["platform_scores"]) == 5
+        platforms = {score["platform"] for score in data["platform_scores"]}
+        assert platforms == {"wechat", "zhihu", "bilibili", "xiaohongshu", "douyin"}
+        for score in data["platform_scores"]:
+            assert 0 <= score["format_score"] <= 100
+            assert 0 <= score["style_score"] <= 100
+            assert 0 <= score["consistency_score"] <= 100
+            assert 0 <= score["compliance_score"] <= 100
+            assert 0 <= score["completeness_score"] <= 100
+            assert 0 <= score["overall_score"] <= 100
+            assert isinstance(score["issues"], list)
+            assert isinstance(score["suggestions"], list)
+        assert isinstance(data["issues"], list)
+        assert isinstance(data["suggestions"], list)
+
+    async def test_get_latest_evaluation(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """GET /evaluation should return the latest saved report."""
+        project_id = await self._create_project_with_previews(client)
+        create_response = await client.post(f"/api/projects/{project_id}/evaluation")
+        created = _unwrap_success(create_response)
+
+        response = await client.get(f"/api/projects/{project_id}/evaluation")
+
+        assert response.status_code == 200
+        data = _unwrap_success(response)
+        assert data["project_id"] == project_id
+        assert data["average_score"] == created["average_score"]
+        assert len(data["platform_scores"]) == 5
+
+    async def test_evaluation_requires_preview(self, client: AsyncClient) -> None:
+        """Evaluation should require generated previews."""
+        create_resp = await client.post(
+            "/api/projects",
+            json={"title": "No Preview", "source_text": SAMPLE_TEXT},
+        )
+        project_id = str(_unwrap_success(create_resp)["id"])
+
+        response = await client.post(f"/api/projects/{project_id}/evaluation")
+
+        assert response.status_code == 409
+        _assert_error(response, "EVALUATION_REQUIRES_PREVIEW")
+
+    async def test_get_missing_evaluation_returns_404(self, client: AsyncClient) -> None:
+        """GET /evaluation should return 404 before a report is created."""
+        project_id = await self._create_project_with_previews(client)
+
+        response = await client.get(f"/api/projects/{project_id}/evaluation")
+
+        assert response.status_code == 404
+        _assert_error(response, "EVALUATION_NOT_FOUND")
+
+    async def test_evaluation_for_missing_project_returns_404(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        """Evaluation requests for missing projects should return PROJECT_NOT_FOUND."""
+        post_response = await client.post("/api/projects/bad-id/evaluation")
+        get_response = await client.get("/api/projects/bad-id/evaluation")
+
+        assert post_response.status_code == 404
+        assert get_response.status_code == 404
+        _assert_error(post_response, "PROJECT_NOT_FOUND")
+        _assert_error(get_response, "PROJECT_NOT_FOUND")

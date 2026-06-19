@@ -1,12 +1,5 @@
-"""Content quality evaluation logic.
+"""Content quality evaluation logic."""
 
-WARNING: Do NOT implement evaluators in this stage.
-This module is reserved for future stages when quality evaluation
-metrics are introduced.
+from .rule_based import evaluate_project_previews
 
-TODO (future):
-- Content consistency score
-- Platform compliance check
-- Title quality evaluation
-- Readability analysis
-"""
+__all__ = ["evaluate_project_previews"]

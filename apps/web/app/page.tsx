@@ -11,6 +11,7 @@ import type {
   ProjectResponse,
   GeneratePreviewResponse,
   PlatformPublishResultItem,
+  EvaluationReportResponse,
   ReviewStatus,
 } from "@/types";
 
@@ -32,6 +33,9 @@ export default function Home() {
   const [reviewStatus, setReviewStatus] = useState<ReviewStatus>("pending");
   const [isReviewing, setIsReviewing] = useState(false);
   const [reviewError, setReviewError] = useState("");
+  const [evaluationReport, setEvaluationReport] = useState<EvaluationReportResponse | null>(null);
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [evaluationError, setEvaluationError] = useState("");
 
   const canSubmit =
     title.trim().length > 0 && sourceText.trim().length > 0 && selectedPlatforms.length > 0;
@@ -64,6 +68,8 @@ export default function Home() {
       setPublishError("");
       setReviewStatus("pending");
       setReviewError("");
+      setEvaluationReport(null);
+      setEvaluationError("");
       setStep("result");
     } catch (err) {
       if (err instanceof ApiError) {
@@ -92,7 +98,30 @@ export default function Home() {
     setReviewStatus("pending");
     setReviewError("");
     setIsReviewing(false);
+    setEvaluationReport(null);
+    setEvaluationError("");
+    setIsEvaluating(false);
   }, []);
+
+  const handleEvaluation = useCallback(async () => {
+    if (!projectId) return;
+
+    setIsEvaluating(true);
+    setEvaluationError("");
+
+    try {
+      const response = await api.createEvaluation(projectId);
+      setEvaluationReport(response.data);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setEvaluationError(`评测失败 (${err.status}): ${err.message}`);
+      } else {
+        setEvaluationError("评测失败，请稍后重试");
+      }
+    } finally {
+      setIsEvaluating(false);
+    }
+  }, [projectId]);
 
   const handleApprove = useCallback(async () => {
     if (!projectId) return;
@@ -269,6 +298,106 @@ export default function Home() {
               {previews.map((preview) => (
                 <PreviewCard key={preview.platform} preview={preview} />
               ))}
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200">
+                    Evaluation Report
+                  </h3>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Rule-based quality scores for generated previews
+                  </p>
+                </div>
+                <button
+                  onClick={handleEvaluation}
+                  disabled={isEvaluating || previews.length === 0}
+                  className={`rounded-lg px-5 py-2 text-sm font-semibold text-white transition ${
+                    isEvaluating || previews.length === 0
+                      ? "cursor-not-allowed bg-gray-300 dark:bg-gray-600"
+                      : "bg-blue-600 hover:bg-blue-700 active:bg-blue-800"
+                  }`}
+                >
+                  {isEvaluating ? "正在评测…" : "Run Evaluation"}
+                </button>
+              </div>
+
+              {evaluationError && (
+                <p className="mt-3 text-xs text-red-600 dark:text-red-400">{evaluationError}</p>
+              )}
+
+              {evaluationReport && (
+                <div className="mt-5 space-y-5">
+                  <div className="flex items-end gap-3">
+                    <span className="text-4xl font-bold text-gray-900 dark:text-white">
+                      {evaluationReport.average_score}
+                    </span>
+                    <span className="pb-1 text-sm text-gray-500 dark:text-gray-400">
+                      average_score
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                    {evaluationReport.platform_scores.map((score) => (
+                      <div
+                        key={score.platform}
+                        className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900"
+                      >
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                            {score.platform_display_name}
+                          </span>
+                          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                            {score.overall_score}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-300">
+                          <span>format {score.format_score}</span>
+                          <span>style {score.style_score}</span>
+                          <span>consistency {score.consistency_score}</span>
+                          <span>compliance {score.compliance_score}</span>
+                          <span>completeness {score.completeness_score}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {(evaluationReport.issues.length > 0 ||
+                    evaluationReport.suggestions.length > 0) && (
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                      <div>
+                        <h4 className="mb-2 text-sm font-semibold text-gray-800 dark:text-gray-100">
+                          Issues
+                        </h4>
+                        <ul className="space-y-1 text-xs text-gray-500 dark:text-gray-400">
+                          {evaluationReport.issues.length > 0 ? (
+                            evaluationReport.issues.map((issue) => (
+                              <li key={issue}>- {issue}</li>
+                            ))
+                          ) : (
+                            <li>No blocking issues found.</li>
+                          )}
+                        </ul>
+                      </div>
+                      <div>
+                        <h4 className="mb-2 text-sm font-semibold text-gray-800 dark:text-gray-100">
+                          Suggestions
+                        </h4>
+                        <ul className="space-y-1 text-xs text-gray-500 dark:text-gray-400">
+                          {evaluationReport.suggestions.length > 0 ? (
+                            evaluationReport.suggestions.map((suggestion) => (
+                              <li key={suggestion}>- {suggestion}</li>
+                            ))
+                          ) : (
+                            <li>No suggestions for the current previews.</li>
+                          )}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">

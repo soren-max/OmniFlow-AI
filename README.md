@@ -24,6 +24,7 @@ Manually adapting content for each platform is time-consuming, error-prone, and 
 - Adapter registry                ✅
 - Mock publish                    ✅
 - Human Review API gate           ✅
+- Rule-based Evaluation reports   ✅
 - LangGraph workflow skeleton     ✅
 - Agent Run / Step trace records  ✅
 - PostgreSQL persistence          ✅
@@ -73,6 +74,10 @@ All adapters implement the same `PlatformAdapter` abstract interface — adding 
 │    → ContentProjectService.publish_project()                    │
 │    → adapter.mock_publish()                                     │
 │                                                                 │
+│  POST /api/projects/{id}/evaluation                             │
+│    → ContentProjectService.evaluate_project()                   │
+│    → rule-based quality scoring for saved previews              │
+│                                                                 │
 │  POST /api/projects/{id}/agent-preview                          │
 │    → LangGraph deterministic preview workflow                   │
 │    → PlatformAdapterRegistry.get_adapter(platform)              │
@@ -112,8 +117,9 @@ The backend includes AgentRun and AgentStep data models plus a database-backed
 skeleton records node execution traces for the experimental `agent-preview` path.
 Projects, platform preview results, mock publish results, Agent Runs, and Agent
 Steps are persisted through SQLAlchemy and Alembic-managed PostgreSQL tables.
-Real publishing, full graph-native Human Review, and Evaluation reports remain
-future work.
+Real publishing and full graph-native Human Review remain future work. Evaluation
+reports are currently deterministic and rule-based; they do not call a real LLM
+and are not a substitute for production content safety review.
 
 ### Human Review Gate
 
@@ -407,10 +413,10 @@ The following features are **explicitly out of scope** for the current stage:
 | LangGraph workflow orchestration | ✅ Minimal deterministic preview skeleton only; no LLM calls. |
 | Agent Run Trace | ✅ PostgreSQL-backed Agent Run and Agent Step records for the LangGraph preview skeleton. |
 | Human Review workflow | ✅ API-level approve/reject gate before Mock Publish. Full LangGraph human-in-the-loop is planned. |
-| Evaluation Reports | ❌ No quality scoring, consistency checks, or evaluation metrics. |
+| Evaluation Reports | ✅ Rule-based preview quality analysis with format, style, consistency, compliance, completeness, overall score, issues, and suggestions. No real LLM calls. |
 | Authentication / Authorization | ❌ No user system, API keys, or session management. |
 | Database persistence | ✅ Projects, previews, mock publish results, Agent Runs, and Agent Steps are persisted in PostgreSQL. |
-| Review/Evaluation persistence | 🔜 Planned with Human Review and Evaluation Reports. |
+| Review/Evaluation persistence | ✅ Evaluation reports are persisted. Review is currently project-status based; detailed review audit records are planned. |
 | Frontend tests | ❌ `pnpm test` is a placeholder — no Vitest/Jest configured. |
 
 ---
@@ -422,8 +428,8 @@ The following features are **explicitly out of scope** for the current stage:
 | **Phase 1** | Repository bootstrap and adapter-driven preview | ✅ **Done** |
 | **Phase 2** | Mock Publish and API schema stabilization | ✅ **Done** |
 | **Phase 3** | LangGraph preview skeleton and PostgreSQL-backed Agent Run Trace | ✅ **In progress** |
-| **Phase 4** | Human Review and traced workflow integration | 🔜 Planned |
-| **Phase 5** | Evaluation and observability | 🔜 Planned |
+| **Phase 4** | Human Review and traced workflow integration | ✅ **In progress** |
+| **Phase 5** | Evaluation and observability | ✅ **In progress** |
 | **Phase 6** | Real publishing integrations with explicit approval | 🔜 Planned |
 
 ---
@@ -440,7 +446,7 @@ The codebase is structured for Agent workflow integration from day one:
 - `adapters/` module provides the tool-calling interface that agents will invoke.
 - `schemas/` holds Pydantic models that define the input/output contract for every Agent node.
 - `services/` contains business logic that can be called by both API routes and Agent nodes.
-- `telemetry/` contains PostgreSQL-backed Agent Run and Agent Step records; `evaluators/` remains reserved for quality scoring.
+- `telemetry/` contains PostgreSQL-backed Agent Run and Agent Step records; `evaluators/` contains deterministic rule-based quality scoring.
 
 ### Tool / Adapter Abstraction
 
@@ -459,7 +465,7 @@ The API design anticipates human approval:
 
 ### Evaluation-Ready Design
 
-The `evals/` directory at the project root and the `evaluators/` backend module are reserved for quality metrics. The data model (`PublishResult`, `ValidationResult`) already carries the fields that evaluation scoring will consume.
+The `evaluators/` backend module provides deterministic rule-based quality scoring for saved previews. It reports format, style, consistency, compliance, completeness, overall score, issues, and suggestions. It does not call a real LLM; LLM-as-judge can be added later as a separate evaluator.
 
 ### Enterprise PR Workflow
 

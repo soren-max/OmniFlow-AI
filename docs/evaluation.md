@@ -2,50 +2,51 @@
 
 ## Current Stage
 
-No evaluation system has been implemented. The `evals/` directory at the project root is prepared for:
+The project now includes a deterministic, rule-based content quality evaluation
+report for generated platform previews. It is not LLM-as-judge, does not call a
+model provider, and does not use hidden prompts.
 
-- `evals/datasets/` — test datasets for evaluating Agent performance.
-- `evals/reports/` — generated evaluation reports.
+Current endpoints:
 
-The deterministic LangGraph preview workflow now records in-memory Agent Run and
-Agent Step traces. Those records include status, input/output snapshots, latency,
-and errors, which gives future Evaluation work a baseline event history. Current
-trace records are not evaluation scores and are not persisted to PostgreSQL yet.
+- `POST /api/projects/{project_id}/evaluation`
+- `GET /api/projects/{project_id}/evaluation`
 
-## Intended Evaluation Framework (Future)
+The evaluator reads persisted preview records, computes platform-level scores,
+stores the report in PostgreSQL, and returns the latest report through the API.
 
-### Dimensions
+## Current Dimensions
 
-| Dimension | Description | Metric |
-|-----------|-------------|--------|
-| Consistency | Content matches original intent | 0.0 - 1.0 |
-| Compliance | Content follows platform rules | Pass / Fail |
-| Readability | Content is easy to read and understand | 0.0 - 1.0 |
-| Title Quality | Titles are engaging and accurate | 0.0 - 1.0 |
-| Hook Quality | Opening hooks capture attention | 0.0 - 1.0 |
-| Tag Relevance | Tags are relevant and discoverable | 0.0 - 1.0 |
+Each platform preview receives scores from 0 to 100:
 
-### Evaluation Process (Future)
+| Dimension | Current rule-based signal |
+|-----------|---------------------------|
+| `format_score` | Required title, content length, rendered preview HTML |
+| `style_score` | Platform-specific metadata such as scripts, hashtags, shots, or summaries |
+| `consistency_score` | Source title and source-text overlap with adapted content |
+| `compliance_score` | Adapter validation errors and warnings |
+| `completeness_score` | Summary, hooks, and word-count completeness |
+| `overall_score` | Average of the five dimension scores |
 
-1. User submits source content.
-2. Agent generates adapted content for each platform.
-3. Each adapted piece is evaluated against the dimensions above.
-4. An overall quality score is computed.
-5. The evaluation result is stored alongside the Agent run.
-6. Human reviewer can see the scores before approving.
+Reports also include:
 
-### Data Collection (Future)
+- `average_score`
+- platform scores for all evaluated previews
+- `issues`
+- `suggestions`
 
-- Every Agent run is recorded with step traces in the current in-memory trace
-  service.
-- Tool calls, latency, errors, and token usage will be logged as the workflow
-  expands. The current deterministic workflow records latency and errors, while
-  token usage is absent because no LLM is called.
-- User feedback (ratings and comments) is collected.
-- Evaluation datasets can be used for regression testing.
+## Supported Platforms
 
-## Not in MVP
+The current evaluator supports previews for all five adapters:
 
-The evaluation framework, metrics, persistent evaluation data collection, and
-token usage reporting are not yet implemented. The current trace service only
-captures deterministic workflow run/step records for future evaluation inputs.
+- WeChat Official Accounts / `wechat`
+- Zhihu / `zhihu`
+- Bilibili / `bilibili`
+- Xiaohongshu / `xiaohongshu`
+- Douyin / `douyin`
+
+## Limits
+
+This is intentionally a baseline evaluator. It is useful for deterministic checks
+and regression tests, but it is not a semantic quality judge. Future PRs can add
+LLM-as-judge, reviewer feedback, dataset-based regression reports, or evaluation
+inside the LangGraph workflow after explicit approval.

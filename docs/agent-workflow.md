@@ -26,7 +26,8 @@ LangGraph node is wrapped by the telemetry trace layer and writes an Agent Step
 with status, input/output snapshots, latency, and errors. Trace schemas,
 repository access, and service transitions are centralized in
 `apps/api/app/telemetry/`. Human Review is currently an API-level gate before
-Mock Publish; Evaluation and real publishing remain future work.
+Mock Publish. Evaluation is currently rule-based and service-level; real
+publishing remains future work.
 
 ## Current Trace Flow
 
@@ -129,4 +130,4 @@ Source Content / Idea
 The full Agent workflow is still out of scope. The current implementation includes
 only the deterministic LangGraph preview skeleton plus PostgreSQL-backed trace
 records. Real LLM calls, Prompt Engineering, RAG, full graph-native Human Review,
-Evaluation, and real publishing are not implemented.
+LLM-as-judge Evaluation, and real publishing are not implemented.

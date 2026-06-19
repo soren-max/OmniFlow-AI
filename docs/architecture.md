@@ -20,9 +20,13 @@ The adapter-driven preview and mock publish pipeline is operational:
   results, mock publish results, Agent Runs, and Agent Steps.
 - **Human Review API gate** using project statuses `pending`, `approved`, and
   `rejected` before Mock Publish.
+- **Rule-based Evaluation** for saved previews, including format, style,
+  consistency, compliance, completeness, overall score, issues, and suggestions.
 
-No LLM-backed Agent workflow, Evaluation report, or real platform publish
-implementations exist yet. The current publishing path is mock-only.
+No LLM-backed Agent workflow or real platform publish implementations exist yet.
+The current Evaluation implementation is deterministic and rule-based; it does
+not call a real LLM and is not a production content safety review system. The
+current publishing path is mock-only.
 
 ## Intended Architecture (Future)
 
@@ -60,7 +64,7 @@ implementations exist yet. The current publishing path is mock-only.
 ├─────────────────────┤
 │  Adapters           │  Platform-specific publishing (mock adapters + registry done)
 ├─────────────────────┤
-│  Evaluators         │  Quality evaluation (future)
+│  Evaluators         │  Rule-based quality evaluation now; LLM-as-judge later
 ├─────────────────────┤
 │  Telemetry          │  PostgreSQL Agent Run and Agent Step traces now; metrics later
 └─────────────────────┘
@@ -82,6 +86,9 @@ implementations exist yet. The current publishing path is mock-only.
 - **Human Review API gate first**: Preview generation moves a project to
   `pending`; approve/reject endpoints update the review status; Mock Publish
   requires `approved`. A LangGraph human-in-the-loop node is future work.
+- **Rule-based Evaluation first**: Evaluation runs in the service/evaluator layer
+  against saved preview data. It is deterministic and does not call a model
+  provider.
 
 ## LangGraph Workflow Skeleton
 
@@ -115,10 +122,10 @@ through `GET /api/runs/{run_id}` and `GET /api/runs/{run_id}/steps`. The
 `POST /api/projects/{id}/agent-preview` response includes `run_id` so callers can
 inspect the workflow trace.
 
-Projects, platform preview results, mock publish results, Agent Runs, and Agent
-Steps are covered by the current PostgreSQL persistence layer. ReviewRecord and
-EvaluationReport persistence are planned for later Human Review and Evaluation
-work.
+Projects, platform preview results, mock publish results, Evaluation reports,
+Agent Runs, and Agent Steps are covered by the current PostgreSQL persistence
+layer. Detailed ReviewRecord persistence is planned for later Human Review audit
+history.
 
 ## PlatformAdapter Flow
 

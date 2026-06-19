@@ -11,6 +11,7 @@ from uuid import uuid4
 from api.app.core.database import SessionLocal
 from api.app.models.project import (
     ContentProjectModel,
+    EvaluationReportModel,
     PlatformContentModel,
     PublishResultModel,
     PublishTaskModel,
@@ -153,6 +154,59 @@ class ProjectRepository:
             ]
             session.add(task)
 
+    def add_evaluation_report(
+        self,
+        project_id: str,
+        report: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """Persist a rule-based evaluation report."""
+        with self._session_scope() as session:
+            project = session.get(ContentProjectModel, project_id)
+            if project is None:
+                return None
+
+            model = EvaluationReportModel(
+                project_id=project_id,
+                average_score=int(report["average_score"]),
+                platform_scores_json=list(report.get("platform_scores", [])),
+                issues_json=list(report.get("issues", [])),
+                suggestions_json=list(report.get("suggestions", [])),
+                created_at=datetime.now(timezone.utc),
+            )
+            session.add(model)
+            session.flush()
+            created_at = model.created_at
+
+        return {
+            "project_id": project_id,
+            "average_score": int(report["average_score"]),
+            "platform_scores": list(report.get("platform_scores", [])),
+            "issues": list(report.get("issues", [])),
+            "suggestions": list(report.get("suggestions", [])),
+            "created_at": created_at,
+        }
+
+    def get_latest_evaluation_report(self, project_id: str) -> dict[str, Any] | None:
+        """Return the latest rule-based evaluation report for a project."""
+        with self._session_scope(commit=False) as session:
+            statement = (
+                select(EvaluationReportModel)
+                .where(EvaluationReportModel.project_id == project_id)
+                .order_by(EvaluationReportModel.created_at.desc(), EvaluationReportModel.id.desc())
+                .limit(1)
+            )
+            model = session.scalar(statement)
+            if model is None:
+                return None
+            return {
+                "project_id": model.project_id,
+                "average_score": model.average_score,
+                "platform_scores": model.platform_scores_json,
+                "issues": model.issues_json,
+                "suggestions": model.suggestions_json,
+                "created_at": model.created_at,
+            }
+
     def update_status(self, project_id: str, status: str) -> ProjectRecord | None:
         """Update a project's workflow status."""
         with self._session_scope() as session:
@@ -178,6 +232,7 @@ class ProjectRepository:
     def clear(self) -> None:
         """Remove all project data (useful for testing)."""
         with self._session_scope() as session:
+            session.execute(delete(EvaluationReportModel))
             session.execute(delete(PublishResultModel))
             session.execute(delete(PublishTaskModel))
             session.execute(delete(PlatformContentModel))
