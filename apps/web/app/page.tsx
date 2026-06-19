@@ -4,8 +4,11 @@ import { useState, useCallback } from "react";
 import { ContentEditor } from "@/components/ContentEditor";
 import { PlatformSelector } from "@/components/PlatformSelector";
 import { PreviewCard } from "@/components/PreviewCard";
+import { TraceViewer } from "@/components/TraceViewer";
 import { api, ApiError } from "@/lib/api";
 import type {
+  AgentRun,
+  AgentStep,
   Platform,
   ProjectPreviewItem,
   ProjectResponse,
@@ -36,6 +39,12 @@ export default function Home() {
   const [evaluationReport, setEvaluationReport] = useState<EvaluationReportResponse | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evaluationError, setEvaluationError] = useState("");
+  const [runId, setRunId] = useState("");
+  const [traceRun, setTraceRun] = useState<AgentRun | null>(null);
+  const [traceSteps, setTraceSteps] = useState<AgentStep[]>([]);
+  const [isTraceVisible, setIsTraceVisible] = useState(false);
+  const [isTraceLoading, setIsTraceLoading] = useState(false);
+  const [traceError, setTraceError] = useState("");
 
   const canSubmit =
     title.trim().length > 0 && sourceText.trim().length > 0 && selectedPlatforms.length > 0;
@@ -59,10 +68,19 @@ export default function Home() {
         `/api/projects/${project.id}/preview`,
         { platforms: selectedPlatforms },
       );
+      const agentPreviewResp = await api.generateAgentPreview(project.id, {
+        platforms: selectedPlatforms,
+      });
 
       setPreviews(previewResp.data.previews);
       setProjectId(project.id);
       setProjectTitle(project.title);
+      setRunId(agentPreviewResp.data.run_id ?? "");
+      setTraceRun(null);
+      setTraceSteps([]);
+      setIsTraceVisible(false);
+      setIsTraceLoading(false);
+      setTraceError("");
       setPublishPlatforms(selectedPlatforms);
       setPublishResults([]);
       setPublishError("");
@@ -101,7 +119,38 @@ export default function Home() {
     setEvaluationReport(null);
     setEvaluationError("");
     setIsEvaluating(false);
+    setRunId("");
+    setTraceRun(null);
+    setTraceSteps([]);
+    setIsTraceVisible(false);
+    setIsTraceLoading(false);
+    setTraceError("");
   }, []);
+
+  const handleViewTrace = useCallback(async () => {
+    if (!runId) return;
+
+    setIsTraceVisible(true);
+    setIsTraceLoading(true);
+    setTraceError("");
+
+    try {
+      const [runResp, stepsResp] = await Promise.all([
+        api.getAgentRun(runId),
+        api.listAgentSteps(runId),
+      ]);
+      setTraceRun(runResp.data);
+      setTraceSteps(stepsResp.data);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setTraceError(`Trace 加载失败 (${err.status}): ${err.message}`);
+      } else {
+        setTraceError("Trace 加载失败，请稍后重试");
+      }
+    } finally {
+      setIsTraceLoading(false);
+    }
+  }, [runId]);
 
   const handleEvaluation = useCallback(async () => {
     if (!projectId) return;
@@ -292,6 +341,54 @@ export default function Home() {
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {projectTitle} — 已为 {previews.length} 个平台生成预览
               </p>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200">
+                    Agent Trace
+                  </h3>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Basic run and step trace from the deterministic Agent Preview workflow
+                  </p>
+                </div>
+                <button
+                  onClick={handleViewTrace}
+                  disabled={!runId || isTraceLoading}
+                  className={`rounded-lg px-5 py-2 text-sm font-semibold text-white transition ${
+                    !runId || isTraceLoading
+                      ? "cursor-not-allowed bg-gray-300 dark:bg-gray-600"
+                      : "bg-blue-600 hover:bg-blue-700 active:bg-blue-800"
+                  }`}
+                >
+                  {isTraceLoading ? "Loading Trace..." : "View Trace"}
+                </button>
+              </div>
+
+              <div className="mt-4">
+                <p className="text-xs text-gray-500 dark:text-gray-400">run_id</p>
+                {runId ? (
+                  <code className="mt-1 block break-all rounded bg-gray-50 px-3 py-2 text-xs text-gray-700 dark:bg-gray-900 dark:text-gray-200">
+                    {runId}
+                  </code>
+                ) : (
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    当前 preview 未返回可查询的 Agent Trace。
+                  </p>
+                )}
+              </div>
+
+              {isTraceVisible && (
+                <div className="mt-5">
+                  <TraceViewer
+                    run={traceRun}
+                    steps={traceSteps}
+                    isLoading={isTraceLoading}
+                    errorMessage={traceError}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

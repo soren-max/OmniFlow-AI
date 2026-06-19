@@ -7,7 +7,11 @@
  */
 
 import type {
+  AgentPreviewResponse,
+  AgentRun,
+  AgentStep,
   EvaluationReportResponse,
+  GeneratePreviewRequest,
   ProjectResponse,
   PublishProjectRequest,
   PublishProjectResponse,
@@ -129,6 +133,28 @@ export const api = {
     return request<PublishProjectResponse>(`/api/projects/${projectId}/publish`, {
       method: "POST",
       body: JSON.stringify(body),
+    });
+  },
+
+  generateAgentPreview(
+    projectId: string,
+    body: GeneratePreviewRequest,
+  ): Promise<ApiResponse<AgentPreviewResponse>> {
+    return request<AgentPreviewResponse>(`/api/projects/${projectId}/agent-preview`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
+
+  getAgentRun(runId: string): Promise<ApiResponse<AgentRun>> {
+    return request<AgentRun>(`/api/runs/${runId}`, {
+      method: "GET",
+    });
+  },
+
+  listAgentSteps(runId: string): Promise<ApiResponse<AgentStep[]>> {
+    return request<AgentStep[]>(`/api/runs/${runId}/steps`, {
+      method: "GET",
     });
   },
 

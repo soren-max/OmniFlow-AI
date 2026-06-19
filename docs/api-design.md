@@ -44,7 +44,8 @@ Agent Run and Agent Step endpoints are read-only. They expose persisted trace
 records written by the deterministic LangGraph `agent-preview` workflow. Trace
 schemas, repository access, and lifecycle transitions are centralized in
 `apps/api/app/telemetry/`; status values are `running`, `completed`, and `failed`.
-They do not call real LLMs or publish to real platforms.
+The web demo can now show the returned `run_id` and load a basic Trace Viewer for
+these records. They do not call real LLMs or publish to real platforms.
 
 Supported preview platforms:
 
@@ -291,7 +292,8 @@ It returns workflow state with normalized input, platform strategy, previews,
 errors, status, and `run_id`. It also creates one Agent Run trace and one Agent
 Step trace per LangGraph node. It does not replace `/preview`, call real LLMs, or
 perform real publishing. Platform previews are still generated through the
-PlatformAdapter registry.
+PlatformAdapter registry. The frontend uses this endpoint to expose demo-level
+Agent Trace inspection after preview generation.
 
 ```json
 // Response excerpt
