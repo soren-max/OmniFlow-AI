@@ -47,6 +47,7 @@ cover/
 
 # Environments
 .env
+.env.local
 .venv
 env/
 venv/
@@ -118,5 +119,4 @@ build/
 .docker/
 
 # Project specific
-.env.local
 .env.production
