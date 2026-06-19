@@ -28,6 +28,7 @@ Manually adapting content for each platform is time-consuming, error-prone, and 
 - LangGraph workflow skeleton     ✅
 - Agent Run / Step trace records  ✅
 - PostgreSQL persistence          ✅
+- Polished demo dashboard UI      ✅
 - FastAPI backend                 ✅
 - Next.js frontend                ✅
 - Enterprise repository standards ✅
@@ -118,6 +119,13 @@ skeleton records node execution traces for the experimental `agent-preview` path
 The web demo can display the returned `run_id` and load a basic Agent Trace Viewer
 with run metadata and per-node step status, latency, and errors. This viewer is
 demo-level observability, not a production tracing platform.
+
+### Frontend Demo Dashboard
+
+The Next.js frontend presents a polished demo dashboard for interview and project
+review use: hero positioning, workflow strip, platform preview cards, Trace
+Viewer, Human Review, Mock Publish, and Evaluation Report panels. This UI is
+demo-quality and is not a production SaaS console.
 Projects, platform preview results, mock publish results, Agent Runs, and Agent
 Steps are persisted through SQLAlchemy and Alembic-managed PostgreSQL tables.
 Real publishing and full graph-native Human Review remain future work. Evaluation

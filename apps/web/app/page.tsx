@@ -20,6 +20,24 @@ import type {
 
 type PageStep = "input" | "loading" | "result" | "error";
 
+const CAPABILITY_BADGES = [
+  "Multi-platform preview",
+  "LangGraph workflow",
+  "Trace",
+  "Human Review",
+  "Mock Publish",
+  "Evaluation",
+];
+
+const WORKFLOW_STEPS = [
+  "Input",
+  "Platform Strategy",
+  "Preview Generation",
+  "Review",
+  "Mock Publish",
+  "Evaluation",
+];
+
 export default function Home() {
   const [title, setTitle] = useState("");
   const [sourceText, setSourceText] = useState("");
@@ -243,14 +261,19 @@ export default function Home() {
   }, [projectId, publishPlatforms, reviewStatus]);
 
   return (
-    <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <main className="min-h-screen bg-[linear-gradient(180deg,#eef6ff_0%,#f8fafc_35%,#ffffff_100%)] dark:bg-[linear-gradient(180deg,#07111f_0%,#0f172a_42%,#111827_100%)]">
       {/* Header */}
-      <header className="border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+      <header className="border-b border-white/70 bg-white/80 backdrop-blur dark:border-gray-700 dark:bg-gray-950/80">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div>
-            <h1 className="text-lg font-bold text-gray-900 dark:text-white">ContentOps Agent</h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-lg font-bold text-gray-900 dark:text-white">OmniFlow-AI</h1>
+              <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-0.5 text-xs font-semibold text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-300">
+                v0.1.0-alpha
+              </span>
+            </div>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Enterprise AI Agent platform for multi-platform content operations.
+              AI Content Operations Agent for traceable, reviewable demo workflows.
             </p>
           </div>
           {step !== "input" && (
@@ -264,11 +287,56 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-5xl px-6 py-8">
+      <div className="mx-auto max-w-6xl px-6 py-8">
+        <section className="mb-8 rounded-2xl border border-white/70 bg-white/85 p-6 shadow-sm backdrop-blur dark:border-gray-800 dark:bg-gray-950/70">
+          <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-700 dark:text-sky-300">
+                AI Content Operations Agent
+              </p>
+              <h2 className="mt-3 max-w-3xl text-3xl font-bold tracking-tight text-gray-950 dark:text-white">
+                Multi-platform preview with workflow trace, review gate, mock publish, and
+                evaluation.
+              </h2>
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-gray-600 dark:text-gray-300">
+                A demo dashboard for showing adapter-driven content operations without real LLM
+                calls or real platform publishing.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                {CAPABILITY_BADGES.map((badge) => (
+                  <span
+                    key={badge}
+                    className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                  >
+                    {badge}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900/80">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">
+                Workflow strip
+              </p>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                {WORKFLOW_STEPS.map((item, index) => (
+                  <div key={item} className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-900 text-xs font-semibold text-white dark:bg-gray-100 dark:text-gray-950">
+                      {index + 1}
+                    </span>
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-200">
+                      {item}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* ── Input Step ── */}
         {step === "input" && (
-          <div className="space-y-6">
-            <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-950">
               <h2 className="mb-4 text-base font-semibold text-gray-800 dark:text-gray-200">
                 内容输入
               </h2>
@@ -280,25 +348,31 @@ export default function Home() {
               />
             </div>
 
-            <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-950">
               <h2 className="mb-4 text-base font-semibold text-gray-800 dark:text-gray-200">
                 目标平台
               </h2>
               <PlatformSelector selected={selectedPlatforms} onChange={setSelectedPlatforms} />
-            </div>
 
-            <div className="flex justify-center">
-              <button
-                onClick={handleSubmit}
-                disabled={!canSubmit}
-                className={`rounded-xl px-10 py-3 text-sm font-semibold text-white shadow-sm transition ${
-                  canSubmit
-                    ? "bg-blue-600 hover:bg-blue-700 active:bg-blue-800"
-                    : "cursor-not-allowed bg-gray-300 dark:bg-gray-600"
-                }`}
-              >
-                生成多平台预览
-              </button>
+              <div className="mt-6 rounded-xl border border-sky-200 bg-sky-50 p-4 text-xs leading-5 text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-200">
+                <p className="font-semibold">Demo guardrails</p>
+                <p className="mt-1">No real LLM calls. No real platform publishing.</p>
+                <p>Mock Publish requires Human Review approval.</p>
+              </div>
+
+              <div className="mt-6">
+                <button
+                  onClick={handleSubmit}
+                  disabled={!canSubmit}
+                  className={`w-full rounded-xl px-10 py-3 text-sm font-semibold text-white shadow-sm transition ${
+                    canSubmit
+                      ? "bg-gray-950 hover:bg-gray-800 active:bg-black dark:bg-sky-500 dark:hover:bg-sky-400"
+                      : "cursor-not-allowed bg-gray-300 dark:bg-gray-600"
+                  }`}
+                >
+                  生成多平台预览
+                </button>
+              </div>
             </div>
           </div>
         )}
