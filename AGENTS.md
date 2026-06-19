@@ -225,6 +225,11 @@ A good PR:
 * Passes CI.
 * Updates docs if needed.
 * Does not include unrelated formatting changes.
+* Starts from the latest `main` unless there is an explicit reason not to.
+* Does not push directly to `main`.
+* Does not delete, skip, or weaken tests to bypass CI.
+* Reports changed files, tests run, and known limitations when complete.
+* Keeps documentation accurate and avoids claiming planned work as completed.
 
 Preferred PR size:
 
@@ -357,49 +362,67 @@ Do not hardcode platform-specific logic inside Agent nodes.
 * Do not delete or skip tests to make CI pass.
 * Test failure is a bug — fix the code, not the test.
 
-## Current Stage: Repository Bootstrap
+## Current Stage: Demo-quality Agent Workflow Platform / Release Candidate Preparation
 
-This repository is currently in the **bootstrap** stage.
+This repository is no longer in the bootstrap-only stage. The current baseline is
+a demo-quality Agent workflow platform preparing for a release candidate.
 
-**Allowed:**
+Current completed baseline:
 
-* Repository structure initialization.
-* FastAPI app skeleton.
-* Next.js app skeleton.
-* Health check endpoint.
-* Basic tests.
-* Makefile.
-* Docker Compose.
-* CI workflows.
-* Documentation skeleton.
+* Five-platform preview for WeChat, Zhihu, Bilibili, Xiaohongshu, and Douyin.
+* PlatformAdapter interface and registry.
+* Mock Publish through platform adapters.
+* Deterministic LangGraph workflow skeleton.
+* Agent Run and Agent Step trace records.
+* Human Review API gate before Mock Publish.
+* Rule-based Evaluation reports.
+* Basic Trace Viewer when present in the current branch.
+* FastAPI backend, Next.js frontend, and CI / PR workflow.
 
-**Not allowed (reserved for future stages):**
+## Allowed Current Scope
 
-* Do NOT introduce LangGraph.
-* Do NOT implement full Agent workflows.
-* Do NOT implement real publishing.
-* Do NOT implement user authentication / registration.
-* Do NOT introduce unnecessary dependencies.
-* Do NOT hardcode API keys or secrets.
-* Do NOT commit `.env` files.
-* Do NOT create messy top-level directories.
-* Do NOT put all code in one file.
-* Do NOT leave documentation files empty.
+The following work is allowed when it is small, reviewed, tested, and aligned
+with the existing architecture:
 
-## Future Scope
+* PlatformAdapter improvements and new mock adapter behavior.
+* Mock Publish improvements.
+* Deterministic LangGraph workflow skeleton improvements.
+* Agent Run / Step Trace improvements.
+* Human Review API gate improvements.
+* Rule-based Evaluation improvements.
+* Basic Trace Viewer and demo-readiness improvements.
+* Documentation and interview demo materials.
+* Test coverage, linting, type checking, and CI quality improvements.
+* Small refactors that preserve behavior and clarify module boundaries.
 
-These features belong to future stages and must NOT be implemented now:
+## Still Out of Scope
 
-* LangGraph workflow orchestration.
-* Content understanding and intent analysis.
-* Multi-platform content adaptation.
-* Title, hook, and tag generation.
-* Compliance and quality checks.
-* Preview generation.
-* Human-in-the-loop approval.
-* Mock and real publishing.
-* Agent run tracing and observability.
-* Evaluation metrics and reports.
-* Vector search with Qdrant.
-* Browser automation with Playwright.
-* Async task queue with Celery / Dramatiq.
+The following remain out of scope unless explicitly requested and scoped in a
+separate focused PR:
+
+* Real platform publishing.
+* Browser automation with real user accounts.
+* Cookies, tokens, account passwords, or session automation.
+* Real LLM provider integration.
+* Hardcoded API keys, tokens, cookies, passwords, or secrets.
+* Complex authentication, authorization, or RBAC.
+* Production deployment claims or production-readiness claims.
+* Large all-in-one PRs that are difficult to review.
+* Bypassing tests, linting, type checking, or CI gates.
+* Committing `.env` files or other local secret files.
+* Messy top-level directories unrelated to the monorepo structure.
+
+## Documentation Accuracy
+
+Documentation must distinguish completed functionality from planned work.
+
+Use precise language:
+
+* Mock Publish is not real publishing.
+* Rule-based Evaluation is not LLM-as-judge.
+* The deterministic LangGraph skeleton is not a complete autonomous Agent.
+* Demo-quality does not mean production-ready SaaS.
+* Trace Viewer, when present, is basic demo observability, not a full observability
+  platform.
+* Real LLM integration and real platform publishing must be described as future
+  work unless an explicit scoped PR implements them.
