@@ -12,6 +12,7 @@ import type {
   AgentStep,
   EvaluationReportResponse,
   GeneratePreviewRequest,
+  PublishPackageResponse,
   ProjectResponse,
   PublishProjectRequest,
   PublishProjectResponse,
@@ -171,6 +172,50 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<ApiR
   };
 }
 
+async function requestText(path: string, options: RequestInit = {}): Promise<ApiResponse<string>> {
+  const url = `${API_BASE_URL}${path}`;
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      headers: {
+        ...options.headers,
+      },
+      ...options,
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "Network request failed";
+    throw new ApiError(
+      0,
+      "无法连接到后端服务，或浏览器跨域请求被阻止",
+      "NETWORK_ERROR",
+      { url, reason },
+    );
+  }
+
+  const responseText = await response.text();
+  if (!response.ok) {
+    let parsedBody: unknown = null;
+    try {
+      parsedBody = JSON.parse(responseText);
+    } catch {
+      parsedBody = null;
+    }
+    const errorPayload = normalizeErrorPayload(parsedBody, response.statusText);
+    throw new ApiError(
+      response.status,
+      errorPayload.message,
+      errorPayload.code,
+      errorPayload.details ?? null,
+    );
+  }
+
+  return {
+    data: responseText,
+    status: response.status,
+  };
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -263,6 +308,18 @@ export const api = {
 
   getEvaluation(projectId: string): Promise<ApiResponse<EvaluationReportResponse>> {
     return request<EvaluationReportResponse>(`/api/projects/${projectId}/evaluation`, {
+      method: "GET",
+    });
+  },
+
+  getPublishPackage(projectId: string): Promise<ApiResponse<PublishPackageResponse>> {
+    return request<PublishPackageResponse>(`/api/projects/${projectId}/export/json`, {
+      method: "GET",
+    });
+  },
+
+  getPublishPackageMarkdown(projectId: string): Promise<ApiResponse<string>> {
+    return requestText(`/api/projects/${projectId}/export/markdown`, {
       method: "GET",
     });
   },

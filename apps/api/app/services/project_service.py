@@ -91,6 +91,14 @@ class EvaluationNotFoundError(LookupError):
         super().__init__(f"Evaluation report not found for project: {project_id}")
 
 
+class ExportRequiresPreviewError(ValueError):
+    """Raised when a publish package is requested before previews exist."""
+
+    def __init__(self, project_id: str) -> None:
+        self.project_id = project_id
+        super().__init__(f"Project {project_id} needs at least one preview before export.")
+
+
 class ContentProjectService:
     """Business logic for content project CRUD and preview generation."""
 
@@ -354,6 +362,102 @@ class ContentProjectService:
             raise EvaluationNotFoundError(project_id)
         return report
 
+    def build_publish_package(self, project_id: str) -> dict[str, Any]:
+        """Build an export package for manual platform publishing."""
+        project = self.get_project(project_id)
+        previews = project.get("previews")
+        if not isinstance(previews, list) or len(previews) == 0:
+            raise ExportRequiresPreviewError(project_id)
+
+        platform_contents = [
+            self._publish_package_platform_content(preview)
+            for preview in previews
+            if isinstance(preview, dict)
+        ]
+        evaluation = self._repository.get_latest_evaluation_report(project_id)
+        warnings: list[str] = []
+        if project["status"] == REVIEW_PENDING:
+            warnings.append("Project is pending review; export is marked as draft.")
+        elif project["status"] == REVIEW_REJECTED:
+            warnings.append("Project was rejected in Human Review; inspect before publishing.")
+
+        from datetime import datetime, timezone
+
+        return {
+            "project_id": project_id,
+            "title": project["title"],
+            "created_at": project["created_at"],
+            "platforms": [content["platform"] for content in platform_contents],
+            "platform_contents": platform_contents,
+            "review_status": project["status"],
+            "package_status": "approved" if project["status"] == REVIEW_APPROVED else "draft",
+            "warnings": warnings,
+            "evaluation_summary": self._evaluation_summary(evaluation),
+            "exported_at": datetime.now(timezone.utc),
+        }
+
+    def build_publish_package_markdown(self, project_id: str) -> str:
+        """Render a publish package as Markdown for manual publishing."""
+        package = self.build_publish_package(project_id)
+        lines = [
+            f"# 发布包: {package['title']}",
+            "",
+            f"- Project ID: `{package['project_id']}`",
+            f"- Review status: `{package['review_status']}`",
+            f"- Package status: `{package['package_status']}`",
+            f"- Exported at: {package['exported_at'].isoformat()}",
+            "",
+        ]
+
+        warnings = package.get("warnings", [])
+        if warnings:
+            lines.extend(["## Warnings", ""])
+            lines.extend(f"- {warning}" for warning in warnings)
+            lines.append("")
+
+        lines.extend(["## Evaluation Summary", ""])
+        evaluation = package["evaluation_summary"]
+        if evaluation.get("message"):
+            lines.extend([str(evaluation["message"]), ""])
+        else:
+            lines.extend([f"- Average score: {evaluation['average_score']}", ""])
+            if evaluation.get("issues"):
+                lines.append("### Issues")
+                lines.extend(f"- {issue}" for issue in evaluation["issues"])
+                lines.append("")
+            if evaluation.get("suggestions"):
+                lines.append("### Suggestions")
+                lines.extend(f"- {suggestion}" for suggestion in evaluation["suggestions"])
+                lines.append("")
+
+        for content in package["platform_contents"]:
+            lines.extend(
+                [
+                    f"## {content['platform']}",
+                    "",
+                    "### 标题",
+                    content["title"],
+                    "",
+                    "### 正文",
+                    content["body"],
+                    "",
+                    "### 标签",
+                    ", ".join(content["hashtags"]) if content["hashtags"] else "无",
+                    "",
+                    "### 摘要",
+                    content["summary"] or "无",
+                    "",
+                    "### CTA",
+                    content["cta"] or "无",
+                    "",
+                    "### Notes",
+                    content["notes"] or "无",
+                    "",
+                ]
+            )
+
+        return "\n".join(lines).rstrip() + "\n"
+
     def _set_review_status(self, project_id: str, status: str) -> dict[str, Any]:
         updated_project = self._repository.update_status(project_id, status)
         if updated_project is None:
@@ -387,3 +491,55 @@ class ContentProjectService:
             body=str(project["source_text"]),
         )
         return adapter.transform_content(content)
+
+    @staticmethod
+    def _publish_package_platform_content(preview: dict[str, Any]) -> dict[str, Any]:
+        metadata = preview.get("metadata", {})
+        metadata = metadata if isinstance(metadata, dict) else {}
+        hashtags = ContentProjectService._string_list(
+            metadata.get("hashtags") or metadata.get("tags")
+        )
+        summary = str(metadata.get("summary") or "")
+        cta = str(metadata.get("call_to_action") or metadata.get("cta") or "")
+        warnings = ContentProjectService._string_list(preview.get("warnings"))
+        notes = "; ".join(warnings)
+        body = str(preview.get("content") or "")
+        title = str(preview.get("title") or "")
+        copy_parts = [title, "", body]
+        if hashtags:
+            copy_parts.extend(["", " ".join(f"#{tag}" for tag in hashtags)])
+        if cta:
+            copy_parts.extend(["", cta])
+
+        return {
+            "platform": str(preview.get("platform") or ""),
+            "title": title,
+            "body": body,
+            "hashtags": hashtags,
+            "summary": summary,
+            "cta": cta,
+            "notes": notes,
+            "copy_text": "\n".join(copy_parts).strip(),
+        }
+
+    @staticmethod
+    def _evaluation_summary(evaluation: dict[str, Any] | None) -> dict[str, Any]:
+        if evaluation is None:
+            return {
+                "average_score": None,
+                "issues": [],
+                "suggestions": [],
+                "message": "Evaluation not generated yet.",
+            }
+        return {
+            "average_score": int(evaluation["average_score"]),
+            "issues": list(evaluation.get("issues", [])),
+            "suggestions": list(evaluation.get("suggestions", [])),
+            "message": None,
+        }
+
+    @staticmethod
+    def _string_list(value: Any) -> list[str]:
+        if not isinstance(value, list):
+            return []
+        return [str(item) for item in value if str(item).strip()]

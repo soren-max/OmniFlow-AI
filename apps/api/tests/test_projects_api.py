@@ -605,3 +605,77 @@ class TestEvaluation:
         assert get_response.status_code == 404
         _assert_error(post_response, "PROJECT_NOT_FOUND")
         _assert_error(get_response, "PROJECT_NOT_FOUND")
+
+
+# ── Publish Package Export ───────────────────────────────────────────────────
+
+
+class TestPublishPackageExport:
+    async def _create_project_with_previews(self, client: AsyncClient) -> str:
+        """Create a project with generated previews."""
+        create_resp = await client.post(
+            "/api/projects",
+            json={"title": "Export Test", "source_text": SAMPLE_TEXT},
+        )
+        project_id = str(_unwrap_success(create_resp)["id"])
+        preview_resp = await client.post(
+            f"/api/projects/{project_id}/preview",
+            json={
+                "platforms": ["wechat", "zhihu"],
+                "hooks": ["Manual publish hook"],
+                "tags": ["AI", "export"],
+            },
+        )
+        assert preview_resp.status_code == 200
+        return project_id
+
+    async def test_export_json_success(self, client: AsyncClient) -> None:
+        """Publish package JSON should include platform content and evaluation summary."""
+        project_id = await self._create_project_with_previews(client)
+        await client.post(f"/api/projects/{project_id}/evaluation")
+
+        response = await client.get(f"/api/projects/{project_id}/export/json")
+
+        assert response.status_code == 200
+        data = _unwrap_success(response)
+        assert data["project_id"] == project_id
+        assert data["title"] == "Export Test"
+        assert data["review_status"] == "pending"
+        assert data["package_status"] == "draft"
+        assert data["platforms"] == ["wechat", "zhihu"]
+        assert len(data["platform_contents"]) == 2
+        assert data["platform_contents"][0]["copy_text"]
+        assert data["evaluation_summary"]["average_score"] is not None
+
+    async def test_export_markdown_success(self, client: AsyncClient) -> None:
+        """Publish package Markdown should render manual publishing sections."""
+        project_id = await self._create_project_with_previews(client)
+
+        response = await client.get(f"/api/projects/{project_id}/export/markdown")
+
+        assert response.status_code == 200
+        assert "text/markdown" in response.headers["content-type"]
+        assert "# 发布包: Export Test" in response.text
+        assert "## wechat" in response.text
+        assert "### 标题" in response.text
+        assert "Evaluation not generated yet." in response.text
+
+    async def test_export_missing_project_returns_404(self, client: AsyncClient) -> None:
+        """Exporting a missing project should return PROJECT_NOT_FOUND."""
+        response = await client.get("/api/projects/bad-id/export/json")
+
+        assert response.status_code == 404
+        _assert_error(response, "PROJECT_NOT_FOUND")
+
+    async def test_export_requires_preview(self, client: AsyncClient) -> None:
+        """Exporting before preview generation should return a clear error."""
+        create_resp = await client.post(
+            "/api/projects",
+            json={"title": "No Preview Export", "source_text": SAMPLE_TEXT},
+        )
+        project_id = str(_unwrap_success(create_resp)["id"])
+
+        response = await client.get(f"/api/projects/{project_id}/export/json")
+
+        assert response.status_code == 409
+        _assert_error(response, "EXPORT_REQUIRES_PREVIEW")

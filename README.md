@@ -25,6 +25,7 @@ Manually adapting content for each platform is time-consuming, error-prone, and 
 - Mock publish                    ✅
 - Human Review API gate           ✅
 - Rule-based Evaluation reports   ✅
+- Markdown / JSON publish package export ✅
 - LangGraph workflow skeleton     ✅
 - Agent Run / Step trace records  ✅
 - PostgreSQL persistence          ✅
@@ -139,6 +140,17 @@ generation moves a project to `pending`; reviewers can approve or reject the
 project through API endpoints. Mock Publish requires `approved`, and `rejected`
 projects are blocked. This is currently an API-level safety boundary; a future
 LangGraph PR can model it as a human-in-the-loop workflow node.
+
+### Publish Package Export
+
+After generating previews, users can copy platform-specific titles, tags, or
+full content from each Preview Card. They can also export a full publish package
+as Markdown or JSON for manual publishing. This supports the real-use workflow:
+Generate -> Review -> Evaluate -> Export -> Copy -> Manual publish.
+
+This is not automatic publishing. The export feature does not use Cookies,
+Tokens, browser automation, or real platform publishing APIs. See
+[docs/real-use-workflow.md](docs/real-use-workflow.md).
 
 ---
 
@@ -259,6 +271,17 @@ trace, or use the web demo's Trace Viewer after generating a preview:
 curl http://localhost:8000/api/runs/{run_id}
 curl http://localhost:8000/api/runs/{run_id}/steps
 ```
+
+### Export publish package
+
+```bash
+curl http://localhost:8000/api/projects/a1b2c3d4e5f6/export/json
+curl http://localhost:8000/api/projects/a1b2c3d4e5f6/export/markdown
+```
+
+Exports are allowed for draft, approved, and rejected projects. Draft and
+rejected exports include status/warning metadata so a person can inspect before
+manual publishing.
 
 ### Health check
 
