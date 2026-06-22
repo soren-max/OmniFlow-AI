@@ -23,6 +23,7 @@ type PageStep = "input" | "loading" | "result" | "error";
 const CAPABILITY_BADGES = [
   "Multi-platform preview",
   "LangGraph workflow",
+  "DeepSeek generation",
   "Trace",
   "Human Review",
   "Mock Publish",
@@ -316,7 +317,7 @@ export default function Home() {
               </span>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              AI Content Operations Agent for traceable, reviewable demo workflows.
+              AI Content Operations Agent powered by DeepSeek — generate, review, evaluate, export, and publish manually.
             </p>
           </div>
           {step !== "input" && (
@@ -342,8 +343,8 @@ export default function Home() {
                 evaluation.
               </h2>
               <p className="mt-4 max-w-2xl text-sm leading-6 text-gray-600 dark:text-gray-300">
-                A demo dashboard for showing adapter-driven content operations without real LLM
-                calls or real platform publishing.
+                A personal-use content operations workspace powered by DeepSeek, with
+                reviewable workflows, trace visibility, export packages, and manual publishing handoff.
               </p>
               <div className="mt-5 flex flex-wrap gap-2">
                 {CAPABILITY_BADGES.map((badge) => (
@@ -398,9 +399,16 @@ export default function Home() {
               <PlatformSelector selected={selectedPlatforms} onChange={setSelectedPlatforms} />
 
               <div className="mt-6 rounded-xl border border-sky-200 bg-sky-50 p-4 text-xs leading-5 text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-200">
-                <p className="font-semibold">Demo guardrails</p>
-                <p className="mt-1">No real LLM calls. No real platform publishing.</p>
-                <p>Mock Publish requires Human Review approval.</p>
+                <p className="font-semibold">DeepSeek &amp; Publishing Notes</p>
+                <p className="mt-1">
+                  DeepSeek generation is enabled when LLM_PROVIDER=deepseek and LLM_API_KEY is
+                  configured in your local .env file.
+                </p>
+                <p className="mt-1">
+                  Publishing remains manual: export, copy, open the official publishing page,
+                  and submit yourself.
+                </p>
+                <p>Mock Publish is a safe simulation and requires Human Review approval.</p>
               </div>
 
               <div className="mt-6">

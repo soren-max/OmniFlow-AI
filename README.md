@@ -30,7 +30,7 @@ Manually adapting content for each platform is time-consuming, error-prone, and 
 - Agent Run / Step trace records  ✅
 - PostgreSQL persistence          ✅
 - Optional DeepSeek LLM provider ✅
-- Polished demo dashboard UI      ✅
+- Polished personal-use UI        ✅
 - Official publish page handoff   ✅
 - FastAPI backend                 ✅
 - Next.js frontend                ✅
@@ -123,12 +123,12 @@ The web demo can display the returned `run_id` and load a basic Agent Trace View
 with run metadata and per-node step status, latency, and errors. This viewer is
 demo-level observability, not a production tracing platform.
 
-### Frontend Demo Dashboard
+### Frontend Personal-Use Dashboard
 
-The Next.js frontend presents a polished demo dashboard for interview and project
-review use: hero positioning, workflow strip, platform preview cards, Trace
-Viewer, Human Review, Mock Publish, and Evaluation Report panels. This UI is
-demo-quality and is not a production SaaS console.
+The Next.js frontend presents a polished personal-use dashboard: hero positioning,
+workflow strip, platform preview cards with export and copy actions, Trace Viewer,
+Human Review, Mock Publish, and Evaluation Report panels. The UI is designed for
+individual content operations workflows rather than multi-tenant SaaS use.
 Projects, platform preview results, mock publish results, Agent Runs, and Agent
 Steps are persisted through SQLAlchemy and Alembic-managed PostgreSQL tables.
 Real publishing and full graph-native Human Review remain future work. Evaluation
@@ -498,10 +498,9 @@ The following features are **explicitly out of scope** for the current stage:
 
 ## Release Preparation
 
-The current target is a demo-quality `v0.1.0-alpha` release candidate. See
-[docs/release-checklist.md](docs/release-checklist.md) for the local demo
-checklist, interview demo checklist, known limitations, and pre-tag verification
-steps.
+The current target is a personal-use `v0.1.0-alpha` release candidate. See
+[docs/release-checklist.md](docs/release-checklist.md) for the local checklist,
+known limitations, and pre-tag verification steps.
 
 This release keeps real LLM use optional and disabled by default. It does not
 include real platform publishing, production authentication, or production

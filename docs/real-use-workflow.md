@@ -17,8 +17,10 @@ Generate → Review → Evaluate → Export → Copy → Open official publish p
 
 ### Step-by-step
 
-1. **Generate** — Select target platforms and generate platform-specific content
-   through the PlatformAdapter pipeline.
+1. **Generate** — Optionally use DeepSeek (`LLM_PROVIDER=deepseek` with a configured
+   `LLM_API_KEY` in your local `.env`) for LLM-powered content generation. The default
+   mock provider generates deterministic platform-specific content for testing without
+   any API key.
 
 2. **Review** — Inspect the rendered preview, validation warnings, and metadata
    for each platform. The Trace Viewer shows the full adaptation steps.
@@ -48,13 +50,14 @@ Generate → Review → Evaluate → Export → Copy → Open official publish p
 
 | Feature | Description |
 |---------|-------------|
-| Multi-platform generation | WeChat, Zhihu, Bilibili, Xiaohongshu, Douyin |
+| Multi-platform generation | WeChat, Zhihu, Bilibili, Xiaohongshu, Douyin (mock or DeepSeek-powered) |
 | Content review | Rendered previews, validation warnings, trace viewer |
 | Rule-based evaluation | Consistency, compliance, readability scores |
 | Publish package export | Markdown / JSON export with metadata |
 | Copy actions | Per-field copy (title, body, tags) and full content copy |
 | Publish handoff | Open official publish page; optional copy-before-open |
 | Manual publish checklist | Track copy and handoff status per platform |
+| Optional DeepSeek generation | LLM-powered content adaptation with mock fallback |
 
 ---
 
