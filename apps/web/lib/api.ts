@@ -10,12 +10,17 @@ import type {
   AgentPreviewResponse,
   AgentRun,
   AgentStep,
+  CreatePublishDraftRequest,
+  DraftHandoffResponse,
   EvaluationReportResponse,
+  ExportPublishDraftResponse,
   GeneratePreviewRequest,
+  PublishDraft,
   PublishPackageResponse,
   ProjectResponse,
   PublishProjectRequest,
   PublishProjectResponse,
+  UpdatePublishDraftRequest,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -321,6 +326,48 @@ export const api = {
   getPublishPackageMarkdown(projectId: string): Promise<ApiResponse<string>> {
     return requestText(`/api/projects/${projectId}/export/markdown`, {
       method: "GET",
+    });
+  },
+
+  createPublishDraft(
+    projectId: string,
+    body: CreatePublishDraftRequest,
+  ): Promise<ApiResponse<PublishDraft>> {
+    return request<PublishDraft>(`/api/projects/${projectId}/drafts`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
+
+  listPublishDrafts(projectId: string): Promise<ApiResponse<PublishDraft[]>> {
+    return request<PublishDraft[]>(`/api/projects/${projectId}/drafts`, {
+      method: "GET",
+    });
+  },
+
+  updatePublishDraft(
+    draftId: string,
+    body: UpdatePublishDraftRequest,
+  ): Promise<ApiResponse<PublishDraft>> {
+    return request<PublishDraft>(`/api/drafts/${draftId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+  },
+
+  exportPublishDraft(
+    draftId: string,
+    format: "json" | "markdown",
+  ): Promise<ApiResponse<ExportPublishDraftResponse>> {
+    return request<ExportPublishDraftResponse>(`/api/drafts/${draftId}/export`, {
+      method: "POST",
+      body: JSON.stringify({ format }),
+    });
+  },
+
+  openPublishDraftHandoff(draftId: string): Promise<ApiResponse<DraftHandoffResponse>> {
+    return request<DraftHandoffResponse>(`/api/drafts/${draftId}/handoff`, {
+      method: "POST",
     });
   },
 

@@ -8,12 +8,15 @@ import {
   INITIAL_PUBLISH_HANDOFF_CHECKLIST,
   type PublishHandoffChecklist,
 } from "@/lib/publishHandoff";
-import { getPublishHandoffLink } from "@/lib/publishLinks";
-import type { ProjectPreviewItem } from "@/types";
+import { api, getErrorMessage } from "@/lib/api";
+import { getPublishHandoffLink, HANDOFF_STATUS_LABELS } from "@/lib/publishLinks";
+import type { ProjectPreviewItem, PublishDraft } from "@/types";
 import { PLATFORM_OPTIONS } from "@/types";
 
 interface PreviewCardProps {
   preview: ProjectPreviewItem;
+  projectId: string;
+  onDraftSaved?: (draft: PublishDraft) => void;
 }
 
 /**
@@ -24,13 +27,16 @@ interface PreviewCardProps {
  * 1. Copy / Export — copy platform-specific content for manual publishing.
  * 2. Handoff — open official publish page with optional copy-before-open.
  */
-export function PreviewCard({ preview }: PreviewCardProps) {
+export function PreviewCard({ preview, projectId, onDraftSaved }: PreviewCardProps) {
   const platformInfo = PLATFORM_OPTIONS.find((p) => p.id === preview.platform);
   const publishLink = getPublishHandoffLink(preview.platform);
 
   // ── Copy / Export state (from main, PR #20) ──
   const [copyStatus, setCopyStatus] = useState("");
   const [copyError, setCopyError] = useState("");
+  const [draftStatus, setDraftStatus] = useState("");
+  const [draftError, setDraftError] = useState("");
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
 
   // ── Handoff state (PR #21) ──
   const [handoffChecklist, setHandoffChecklist] = useState<PublishHandoffChecklist>(
@@ -132,6 +138,31 @@ export function PreviewCard({ preview }: PreviewCardProps) {
     }
   }
 
+  async function saveAsDraft(): Promise<void> {
+    if (!projectId) return;
+
+    setIsSavingDraft(true);
+    setDraftStatus("");
+    setDraftError("");
+    try {
+      const response = await api.createPublishDraft(projectId, {
+        platform: preview.platform,
+        title: preview.title,
+        body: preview.content,
+        hashtags,
+        summary: typeof preview.metadata.summary === "string" ? preview.metadata.summary : "",
+        cta,
+        notes: preview.warnings.join("; "),
+      });
+      setDraftStatus("已保存到 OmniFlow-AI 系统内草稿箱");
+      onDraftSaved?.(response.data);
+    } catch (error) {
+      setDraftError(getErrorMessage(error, "保存草稿失败，请稍后重试"));
+    } finally {
+      setIsSavingDraft(false);
+    }
+  }
+
   // ── Handoff checklist (PR #21) ──
   const checklistItems = [
     { label: "标题已复制", done: handoffChecklist.titleCopied },
@@ -187,16 +218,24 @@ export function PreviewCard({ preview }: PreviewCardProps) {
           >
             复制标签
           </button>
+          <button
+            type="button"
+            onClick={() => void saveAsDraft()}
+            disabled={isSavingDraft || !projectId}
+            className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300 dark:hover:bg-sky-950"
+          >
+            {isSavingDraft ? "保存中…" : "保存为草稿"}
+          </button>
         </div>
-        {(copyStatus || copyError) && (
+        {(copyStatus || copyError || draftStatus || draftError) && (
           <p
             className={`mt-2 text-xs ${
-              copyError
+              copyError || draftError
                 ? "text-red-600 dark:text-red-400"
                 : "text-green-700 dark:text-green-300"
             }`}
           >
-            {copyError || copyStatus}
+            {copyError || draftError || copyStatus || draftStatus}
           </p>
         )}
       </div>
@@ -207,22 +246,18 @@ export function PreviewCard({ preview }: PreviewCardProps) {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Official publish handoff
+                人工发布 — 打开官方页，手动提交
               </p>
               <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
                 将打开平台官方发布页，你仍需要手动粘贴、检查并确认发布。
               </p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                This opens the official publishing page. You still need to review and submit
-                manually.
-              </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
-                {handoffStatus === "handoff_opened" ? "handoff_opened" : "handoff_ready"}
+                {HANDOFF_STATUS_LABELS[handoffStatus] ?? handoffStatus}
               </span>
               <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
-                {publishLink?.status ?? "manual_publish_required"}
+                {publishLink ? HANDOFF_STATUS_LABELS[publishLink.status] ?? publishLink.status : "未知"}
               </span>
             </div>
           </div>
@@ -242,7 +277,7 @@ export function PreviewCard({ preview }: PreviewCardProps) {
               disabled={!publishLink}
               className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-slate-300"
             >
-              复制后打开
+              复制并打开发布页
             </button>
           </div>
 

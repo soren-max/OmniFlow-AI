@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -193,3 +193,88 @@ class PublishPackageResponse(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     evaluation_summary: PublishPackageEvaluationSummary
     exported_at: datetime
+
+
+DraftStatus = Literal["draft", "reviewed", "exported", "handoff_opened", "archived"]
+DraftExportFormat = Literal["json", "markdown"]
+
+
+class CreatePublishDraftRequest(BaseModel):
+    """Request body for saving a platform preview as a system draft."""
+
+    platform: str = Field(..., min_length=1)
+    title: str = Field(..., min_length=1, max_length=300)
+    body: str = Field(..., min_length=1)
+    hashtags: list[str] = Field(default_factory=list)
+    summary: str = ""
+    cta: str = ""
+    notes: str = ""
+
+    @field_validator("title", "body")
+    @classmethod
+    def validate_draft_text(cls, value: str) -> str:
+        """Reject draft strings that contain only whitespace."""
+        if not value.strip():
+            raise ValueError("Field must not be blank")
+        return value
+
+
+class UpdatePublishDraftRequest(BaseModel):
+    """Request body for editing a system draft."""
+
+    title: str | None = Field(default=None, min_length=1, max_length=300)
+    body: str | None = Field(default=None, min_length=1)
+    hashtags: list[str] | None = None
+    summary: str | None = None
+    cta: str | None = None
+    notes: str | None = None
+    status: DraftStatus | None = None
+
+    @field_validator("title", "body")
+    @classmethod
+    def validate_optional_draft_text(cls, value: str | None) -> str | None:
+        """Reject blank draft fields when they are provided."""
+        if value is not None and not value.strip():
+            raise ValueError("Field must not be blank")
+        return value
+
+
+class PublishDraftResponse(BaseModel):
+    """System-internal draft for manual publishing."""
+
+    draft_id: str
+    project_id: str
+    platform: str
+    title: str
+    body: str
+    hashtags: list[str] = Field(default_factory=list)
+    summary: str = ""
+    cta: str = ""
+    notes: str = ""
+    status: DraftStatus
+    created_at: datetime
+    updated_at: datetime
+
+
+class ExportPublishDraftRequest(BaseModel):
+    """Request body for exporting a single system draft."""
+
+    format: DraftExportFormat = "markdown"
+
+
+class ExportPublishDraftResponse(BaseModel):
+    """Exported draft payload for manual copy/save workflows."""
+
+    draft_id: str
+    format: DraftExportFormat
+    filename: str
+    content: str
+    exported_at: datetime
+
+
+class DraftHandoffResponse(BaseModel):
+    """Manual handoff metadata for a system draft."""
+
+    draft: PublishDraftResponse
+    official_publish_url: str
+    message: str

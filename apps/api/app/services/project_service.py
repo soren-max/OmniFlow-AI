@@ -5,6 +5,7 @@ Coordinates between API routes, repository, and platform adapters.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from api.app.adapters.registry import get_adapter
@@ -21,6 +22,17 @@ from api.app.repositories.project_repository import (
 REVIEW_PENDING = "pending"
 REVIEW_APPROVED = "approved"
 REVIEW_REJECTED = "rejected"
+DRAFT_STATUS_DRAFT = "draft"
+DRAFT_STATUS_EXPORTED = "exported"
+DRAFT_STATUS_HANDOFF_OPENED = "handoff_opened"
+DRAFT_STATUSES = {"draft", "reviewed", "exported", "handoff_opened", "archived"}
+OFFICIAL_PUBLISH_URLS = {
+    Platform.WECHAT.value: "https://mp.weixin.qq.com/",
+    Platform.ZHIHU.value: "https://www.zhihu.com/creator",
+    Platform.BILIBILI.value: "https://member.bilibili.com/platform/home",
+    Platform.XIAOHONGSHU.value: "https://creator.xiaohongshu.com/",
+    Platform.DOUYIN.value: "https://creator.douyin.com/",
+}
 
 
 class ProjectNotFoundError(LookupError):
@@ -97,6 +109,14 @@ class ExportRequiresPreviewError(ValueError):
     def __init__(self, project_id: str) -> None:
         self.project_id = project_id
         super().__init__(f"Project {project_id} needs at least one preview before export.")
+
+
+class DraftNotFoundError(LookupError):
+    """Raised when a requested publish draft does not exist."""
+
+    def __init__(self, draft_id: str) -> None:
+        self.draft_id = draft_id
+        super().__init__(f"Publish draft not found: {draft_id}")
 
 
 class ContentProjectService:
@@ -458,6 +478,131 @@ class ContentProjectService:
 
         return "\n".join(lines).rstrip() + "\n"
 
+    def create_publish_draft(
+        self,
+        project_id: str,
+        platform: str,
+        title: str,
+        body: str,
+        hashtags: list[str] | None = None,
+        summary: str = "",
+        cta: str = "",
+        notes: str = "",
+    ) -> dict[str, Any]:
+        """Save platform content as an OmniFlow-AI system draft."""
+        self.get_project(project_id)
+        platform_enum = self._platform_enum(platform)
+        draft = self._repository.add_publish_draft(
+            project_id,
+            {
+                "platform": platform_enum.value,
+                "title": title.strip(),
+                "body": body.strip(),
+                "hashtags": self._string_list(hashtags or []),
+                "summary": summary,
+                "cta": cta,
+                "notes": notes,
+                "status": DRAFT_STATUS_DRAFT,
+            },
+        )
+        if draft is None:
+            raise ProjectNotFoundError(project_id)
+        return draft
+
+    def list_publish_drafts(self, project_id: str) -> list[dict[str, Any]]:
+        """List OmniFlow-AI system drafts for a project."""
+        drafts = self._repository.list_publish_drafts(project_id)
+        if drafts is None:
+            raise ProjectNotFoundError(project_id)
+        return drafts
+
+    def get_publish_draft(self, draft_id: str) -> dict[str, Any]:
+        """Return one OmniFlow-AI system draft."""
+        draft = self._repository.get_publish_draft(draft_id)
+        if draft is None:
+            raise DraftNotFoundError(draft_id)
+        return draft
+
+    def update_publish_draft(
+        self,
+        draft_id: str,
+        updates: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Edit an OmniFlow-AI system draft."""
+        if "platform" in updates:
+            self._platform_enum(str(updates["platform"]))
+        if "status" in updates and updates["status"] is not None:
+            status = str(updates["status"])
+            if status not in DRAFT_STATUSES:
+                raise ValueError(f"Unsupported draft status: {status!r}")
+
+        draft = self._repository.update_publish_draft(draft_id, updates)
+        if draft is None:
+            raise DraftNotFoundError(draft_id)
+        return draft
+
+    def export_publish_draft(self, draft_id: str, export_format: str) -> dict[str, Any]:
+        """Export a single system draft as Markdown or JSON content."""
+        draft = self.get_publish_draft(draft_id)
+        if export_format not in {"json", "markdown"}:
+            raise ValueError(f"Unsupported draft export format: {export_format!r}")
+
+        from datetime import datetime, timezone
+
+        exported_at = datetime.now(timezone.utc)
+        if export_format == "json":
+            content = json.dumps(
+                {
+                    **draft,
+                    "created_at": draft["created_at"].isoformat(),
+                    "updated_at": draft["updated_at"].isoformat(),
+                    "exported_at": exported_at.isoformat(),
+                    "manual_publish_required": True,
+                    "system_draft_only": True,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        else:
+            content = self._draft_markdown(draft, exported_at)
+
+        updated = self._repository.update_publish_draft(
+            draft_id,
+            {"status": DRAFT_STATUS_EXPORTED},
+        )
+        if updated is None:
+            raise DraftNotFoundError(draft_id)
+
+        return {
+            "draft_id": draft_id,
+            "format": export_format,
+            "filename": f"omniflow-draft-{draft_id}.{ 'json' if export_format == 'json' else 'md' }",
+            "content": content,
+            "exported_at": exported_at,
+        }
+
+    def open_publish_draft_handoff(self, draft_id: str) -> dict[str, Any]:
+        """Mark a system draft as handed off to a manual official publish page."""
+        draft = self.get_publish_draft(draft_id)
+        official_url = OFFICIAL_PUBLISH_URLS.get(str(draft["platform"]))
+        if official_url is None:
+            raise InvalidPlatformError(str(draft["platform"]))
+
+        updated = self._repository.update_publish_draft(
+            draft_id,
+            {"status": DRAFT_STATUS_HANDOFF_OPENED},
+        )
+        if updated is None:
+            raise DraftNotFoundError(draft_id)
+        return {
+            "draft": updated,
+            "official_publish_url": official_url,
+            "message": (
+                "这是 OmniFlow-AI 系统内草稿箱, 不是平台官方草稿箱。"
+                "发布仍需要你进入平台官方发布页手动确认提交。"
+            ),
+        }
+
     def _set_review_status(self, project_id: str, status: str) -> dict[str, Any]:
         updated_project = self._repository.update_status(project_id, status)
         if updated_project is None:
@@ -491,6 +636,13 @@ class ContentProjectService:
             body=str(project["source_text"]),
         )
         return adapter.transform_content(content)
+
+    @staticmethod
+    def _platform_enum(platform: str) -> Platform:
+        try:
+            return Platform(platform)
+        except ValueError:
+            raise InvalidPlatformError(platform)
 
     @staticmethod
     def _publish_package_platform_content(preview: dict[str, Any]) -> dict[str, Any]:
@@ -543,3 +695,41 @@ class ContentProjectService:
         if not isinstance(value, list):
             return []
         return [str(item) for item in value if str(item).strip()]
+
+    @staticmethod
+    def _draft_markdown(draft: dict[str, Any], exported_at: Any) -> str:
+        hashtags = draft.get("hashtags", [])
+        tag_text = " ".join(f"#{tag}" for tag in hashtags) if hashtags else "无"
+        lines = [
+            f"# {draft['title']}",
+            "",
+            f"- Draft ID: `{draft['draft_id']}`",
+            f"- Project ID: `{draft['project_id']}`",
+            f"- Platform: `{draft['platform']}`",
+            f"- Status: `{draft['status']}`",
+            f"- Exported at: {exported_at.isoformat()}",
+            "",
+            "> 这是 OmniFlow-AI 系统内草稿箱, 不是平台官方草稿箱。发布仍需要你进入平台官方发布页手动确认提交。",
+            "",
+            "## 正文",
+            "",
+            str(draft["body"]),
+            "",
+            "## 标签",
+            "",
+            tag_text,
+            "",
+            "## 摘要",
+            "",
+            str(draft.get("summary") or "无"),
+            "",
+            "## CTA",
+            "",
+            str(draft.get("cta") or "无"),
+            "",
+            "## Notes",
+            "",
+            str(draft.get("notes") or "无"),
+            "",
+        ]
+        return "\n".join(lines)

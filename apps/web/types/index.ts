@@ -204,6 +204,68 @@ export interface PublishPackageResponse {
   exported_at: string;
 }
 
+/** System-internal publish draft status */
+export type PublishDraftStatus =
+  | "draft"
+  | "reviewed"
+  | "exported"
+  | "handoff_opened"
+  | "archived";
+
+/** OmniFlow-AI system draft for manual publishing */
+export interface PublishDraft {
+  draft_id: string;
+  project_id: string;
+  platform: Platform;
+  title: string;
+  body: string;
+  hashtags: string[];
+  summary: string;
+  cta: string;
+  notes: string;
+  status: PublishDraftStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Request body for saving a preview as a system draft */
+export interface CreatePublishDraftRequest {
+  platform: string;
+  title: string;
+  body: string;
+  hashtags?: string[];
+  summary?: string;
+  cta?: string;
+  notes?: string;
+}
+
+/** Request body for editing a system draft */
+export interface UpdatePublishDraftRequest {
+  title?: string;
+  body?: string;
+  hashtags?: string[];
+  summary?: string;
+  cta?: string;
+  notes?: string;
+  status?: PublishDraftStatus;
+}
+
+/** Export response for one system draft */
+export interface ExportPublishDraftResponse {
+  draft_id: string;
+  format: "json" | "markdown";
+  filename: string;
+  content: string;
+  exported_at: string;
+}
+
+/** Manual handoff response for one system draft */
+export interface DraftHandoffResponse {
+  draft: PublishDraft;
+  official_publish_url: string;
+  message: string;
+}
+
 /** Platform display info */
 export interface PlatformOption {
   id: Platform;

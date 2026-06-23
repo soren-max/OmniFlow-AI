@@ -330,6 +330,121 @@ class TestGeneratePreview:
         assert error["details"]["platform"] == "wechat"
 
 
+# ── Publish Drafts ────────────────────────────────────────────────────────────
+
+
+class TestPublishDrafts:
+    async def _create_project(self, client: AsyncClient) -> str:
+        response = await client.post(
+            "/api/projects",
+            json={"title": "Draft Project", "source_text": SAMPLE_TEXT},
+        )
+        return str(_unwrap_success(response)["id"])
+
+    async def _create_draft(self, client: AsyncClient, project_id: str) -> dict[str, Any]:
+        response = await client.post(
+            f"/api/projects/{project_id}/drafts",
+            json={
+                "platform": "xiaohongshu",
+                "title": "Draft title",
+                "body": "Draft body for manual publishing.",
+                "hashtags": ["AI", "内容运营"],
+                "summary": "Short summary",
+                "cta": "Follow for more",
+                "notes": "Check images before manual submit.",
+            },
+        )
+        assert response.status_code == 201
+        return _unwrap_success(response)
+
+    async def test_create_publish_draft_success(self, client: AsyncClient) -> None:
+        project_id = await self._create_project(client)
+
+        draft = await self._create_draft(client, project_id)
+
+        assert draft["project_id"] == project_id
+        assert draft["platform"] == "xiaohongshu"
+        assert draft["title"] == "Draft title"
+        assert draft["body"] == "Draft body for manual publishing."
+        assert draft["hashtags"] == ["AI", "内容运营"]
+        assert draft["status"] == "draft"
+        assert draft["draft_id"]
+
+    async def test_list_project_publish_drafts_success(self, client: AsyncClient) -> None:
+        project_id = await self._create_project(client)
+        draft = await self._create_draft(client, project_id)
+
+        response = await client.get(f"/api/projects/{project_id}/drafts")
+
+        assert response.status_code == 200
+        drafts = cast(list[dict[str, Any]], _unwrap_success(response))
+        assert len(drafts) == 1
+        assert drafts[0]["draft_id"] == draft["draft_id"]
+
+    async def test_update_publish_draft_success(self, client: AsyncClient) -> None:
+        project_id = await self._create_project(client)
+        draft = await self._create_draft(client, project_id)
+
+        response = await client.patch(
+            f"/api/drafts/{draft['draft_id']}",
+            json={
+                "title": "Edited title",
+                "body": "Edited body.",
+                "hashtags": ["edited"],
+                "notes": "Ready for manual copy.",
+                "status": "reviewed",
+            },
+        )
+
+        assert response.status_code == 200
+        updated = _unwrap_success(response)
+        assert updated["title"] == "Edited title"
+        assert updated["body"] == "Edited body."
+        assert updated["hashtags"] == ["edited"]
+        assert updated["notes"] == "Ready for manual copy."
+        assert updated["status"] == "reviewed"
+
+    async def test_create_publish_draft_nonexistent_project(self, client: AsyncClient) -> None:
+        response = await client.post(
+            "/api/projects/missing-project/drafts",
+            json={
+                "platform": "wechat",
+                "title": "Draft title",
+                "body": "Draft body",
+            },
+        )
+
+        assert response.status_code == 404
+        _assert_error(response, "PROJECT_NOT_FOUND")
+
+    async def test_update_nonexistent_publish_draft(self, client: AsyncClient) -> None:
+        response = await client.patch(
+            "/api/drafts/missing-draft",
+            json={"title": "Edited title"},
+        )
+
+        assert response.status_code == 404
+        _assert_error(response, "DRAFT_NOT_FOUND")
+
+    async def test_create_publish_draft_unsupported_platform(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        project_id = await self._create_project(client)
+
+        response = await client.post(
+            f"/api/projects/{project_id}/drafts",
+            json={
+                "platform": "threads",
+                "title": "Draft title",
+                "body": "Draft body",
+            },
+        )
+
+        assert response.status_code == 400
+        _assert_error(response, "INVALID_PLATFORM")
+
+
 # ── Mock Publish ──────────────────────────────────────────────────────────────
 
 
