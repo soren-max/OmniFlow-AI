@@ -20,16 +20,23 @@ from api.app.schemas.common import ApiResponse, ok
 from api.app.schemas.project import (
     ContentProjectResponse,
     CreateContentProjectRequest,
+    CreatePublishDraftRequest,
+    DraftHandoffResponse,
     EvaluationReportResponse,
+    ExportPublishDraftRequest,
+    ExportPublishDraftResponse,
     GeneratePreviewRequest,
     PlatformPreviewResponse,
+    PublishDraftResponse,
     PublishPackageResponse,
     PublishProjectRequest,
     PublishProjectResponse,
+    UpdatePublishDraftRequest,
 )
 from api.app.services.project_service import (
     AdapterExecutionError,
     ContentProjectService,
+    DraftNotFoundError,
     EvaluationNotFoundError,
     EvaluationRequiresPreviewError,
     ExportRequiresPreviewError,
@@ -43,6 +50,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import PlainTextResponse
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
+draft_router = APIRouter(prefix="/api/drafts", tags=["drafts"])
 
 # Singleton service instance (will be replaced with DI in future)
 _service = ContentProjectService()
@@ -73,6 +81,15 @@ async def get_project(project_id: str) -> ApiResponse[dict[str, Any]]:
                 "code": "PROJECT_NOT_FOUND",
                 "message": f"Project not found: {project_id}",
                 "details": {"project_id": project_id},
+            },
+        )
+    except ExportRequiresPreviewError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "EXPORT_REQUIRES_PREVIEW",
+                "message": str(exc),
+                "details": {"project_id": exc.project_id},
             },
         )
 
@@ -209,17 +226,187 @@ async def export_publish_package_markdown(project_id: str) -> PlainTextResponse:
                 "details": {"project_id": project_id},
             },
         )
-    except ExportRequiresPreviewError as exc:
+
+
+@router.post(
+    "/{project_id}/drafts",
+    response_model=ApiResponse[PublishDraftResponse],
+    status_code=201,
+)
+async def create_publish_draft(
+    project_id: str,
+    body: CreatePublishDraftRequest,
+) -> ApiResponse[dict[str, Any]]:
+    """Save platform content as an OmniFlow-AI system draft."""
+    try:
+        return ok(
+            _service.create_publish_draft(
+                project_id=project_id,
+                platform=body.platform,
+                title=body.title,
+                body=body.body,
+                hashtags=body.hashtags,
+                summary=body.summary,
+                cta=body.cta,
+                notes=body.notes,
+            )
+        )
+    except ProjectNotFoundError:
         raise HTTPException(
-            status_code=409,
+            status_code=404,
             detail={
-                "code": "EXPORT_REQUIRES_PREVIEW",
+                "code": "PROJECT_NOT_FOUND",
+                "message": f"Project not found: {project_id}",
+                "details": {"project_id": project_id},
+            },
+        )
+    except InvalidPlatformError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "INVALID_PLATFORM",
                 "message": str(exc),
-                "details": {"project_id": exc.project_id},
+                "details": {
+                    "platform": exc.platform,
+                    "valid_platforms": [
+                        platform.value for platform in _service.supported_platforms()
+                    ],
+                },
             },
         )
 
 
+@router.get("/{project_id}/drafts", response_model=ApiResponse[list[PublishDraftResponse]])
+async def list_publish_drafts(project_id: str) -> ApiResponse[list[dict[str, Any]]]:
+    """List OmniFlow-AI system drafts for a project."""
+    try:
+        return ok(_service.list_publish_drafts(project_id))
+    except ProjectNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "PROJECT_NOT_FOUND",
+                "message": f"Project not found: {project_id}",
+                "details": {"project_id": project_id},
+            },
+        )
+
+
+@draft_router.get("/{draft_id}", response_model=ApiResponse[PublishDraftResponse])
+async def get_publish_draft(draft_id: str) -> ApiResponse[dict[str, Any]]:
+    """Get one OmniFlow-AI system draft."""
+    try:
+        return ok(_service.get_publish_draft(draft_id))
+    except DraftNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "DRAFT_NOT_FOUND",
+                "message": f"Publish draft not found: {draft_id}",
+                "details": {"draft_id": draft_id},
+            },
+        )
+
+
+@draft_router.patch("/{draft_id}", response_model=ApiResponse[PublishDraftResponse])
+async def update_publish_draft(
+    draft_id: str,
+    body: UpdatePublishDraftRequest,
+) -> ApiResponse[dict[str, Any]]:
+    """Edit one OmniFlow-AI system draft."""
+    try:
+        return ok(
+            _service.update_publish_draft(
+                draft_id,
+                body.model_dump(exclude_unset=True),
+            )
+        )
+    except DraftNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "DRAFT_NOT_FOUND",
+                "message": f"Publish draft not found: {draft_id}",
+                "details": {"draft_id": draft_id},
+            },
+        )
+    except InvalidPlatformError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "INVALID_PLATFORM",
+                "message": str(exc),
+                "details": {"platform": exc.platform},
+            },
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "INVALID_DRAFT_UPDATE",
+                "message": str(exc),
+                "details": {"draft_id": draft_id},
+            },
+        )
+
+
+@draft_router.post(
+    "/{draft_id}/export",
+    response_model=ApiResponse[ExportPublishDraftResponse],
+)
+async def export_publish_draft(
+    draft_id: str,
+    body: ExportPublishDraftRequest,
+) -> ApiResponse[dict[str, Any]]:
+    """Export one OmniFlow-AI system draft for manual copy/save workflows."""
+    try:
+        return ok(_service.export_publish_draft(draft_id, body.format))
+    except DraftNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "DRAFT_NOT_FOUND",
+                "message": f"Publish draft not found: {draft_id}",
+                "details": {"draft_id": draft_id},
+            },
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "INVALID_DRAFT_EXPORT",
+                "message": str(exc),
+                "details": {"draft_id": draft_id},
+            },
+        )
+
+
+@draft_router.post(
+    "/{draft_id}/handoff",
+    response_model=ApiResponse[DraftHandoffResponse],
+)
+async def open_publish_draft_handoff(draft_id: str) -> ApiResponse[dict[str, Any]]:
+    """Mark a system draft as ready for manual official publish page handoff."""
+    try:
+        return ok(_service.open_publish_draft_handoff(draft_id))
+    except DraftNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "DRAFT_NOT_FOUND",
+                "message": f"Publish draft not found: {draft_id}",
+                "details": {"draft_id": draft_id},
+            },
+        )
+    except InvalidPlatformError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "INVALID_PLATFORM",
+                "message": str(exc),
+                "details": {"platform": exc.platform},
+            },
+        )
 @router.post(
     "/{project_id}/llm-generate",
     response_model=ApiResponse[LLMProjectGenerateResponse],

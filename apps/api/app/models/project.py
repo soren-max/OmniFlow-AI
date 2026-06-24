@@ -47,6 +47,11 @@ class ContentProjectModel(Base):
         cascade="all, delete-orphan",
         order_by="EvaluationReportModel.created_at",
     )
+    publish_drafts: Mapped[list[PublishDraftModel]] = relationship(
+        back_populates="project",
+        cascade="all, delete-orphan",
+        order_by="PublishDraftModel.updated_at.desc()",
+    )
 
 
 class PlatformContentModel(Base):
@@ -154,3 +159,37 @@ class EvaluationReportModel(Base):
     )
 
     project: Mapped[ContentProjectModel] = relationship(back_populates="evaluation_reports")
+
+
+class PublishDraftModel(Base):
+    """Persisted system-internal manual publishing draft."""
+
+    __tablename__ = "publish_drafts"
+
+    draft_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("content_projects.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    platform: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    hashtags_json: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    summary: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    cta: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="draft")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    project: Mapped[ContentProjectModel] = relationship(back_populates="publish_drafts")

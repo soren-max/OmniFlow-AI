@@ -45,3 +45,10 @@ export function getPublishHandoffLink(platform: string): PublishHandoffLink | nu
   }
   return null;
 }
+
+/** Chinese display labels for handoff status values. */
+export const HANDOFF_STATUS_LABELS: Record<string, string> = {
+  handoff_ready: "可打开发布页",
+  handoff_opened: "已打开",
+  manual_publish_required: "需手动提交",
+};

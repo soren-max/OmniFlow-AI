@@ -13,6 +13,7 @@ from api.app.models.project import (
     ContentProjectModel,
     EvaluationReportModel,
     PlatformContentModel,
+    PublishDraftModel,
     PublishResultModel,
     PublishTaskModel,
 )
@@ -207,6 +208,76 @@ class ProjectRepository:
                 "created_at": model.created_at,
             }
 
+    def add_publish_draft(
+        self,
+        project_id: str,
+        draft: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """Persist a system-internal publishing draft for a project."""
+        with self._session_scope() as session:
+            project = session.get(ContentProjectModel, project_id)
+            if project is None:
+                return None
+
+            model = PublishDraftModel(
+                draft_id=uuid4().hex[:12],
+                project_id=project_id,
+                platform=str(draft["platform"]),
+                title=str(draft["title"]),
+                body=str(draft["body"]),
+                hashtags_json=list(draft.get("hashtags", [])),
+                summary=str(draft.get("summary", "")),
+                cta=str(draft.get("cta", "")),
+                notes=str(draft.get("notes", "")),
+                status=str(draft.get("status", "draft")),
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
+            )
+            session.add(model)
+            session.flush()
+            return self._draft_to_dict(model)
+
+    def list_publish_drafts(self, project_id: str) -> list[dict[str, Any]] | None:
+        """List system drafts for a project, newest first."""
+        with self._session_scope(commit=False) as session:
+            if session.get(ContentProjectModel, project_id) is None:
+                return None
+
+            statement = (
+                select(PublishDraftModel)
+                .where(PublishDraftModel.project_id == project_id)
+                .order_by(PublishDraftModel.updated_at.desc(), PublishDraftModel.created_at.desc())
+            )
+            return [self._draft_to_dict(model) for model in session.scalars(statement).all()]
+
+    def get_publish_draft(self, draft_id: str) -> dict[str, Any] | None:
+        """Return one system draft by id."""
+        with self._session_scope(commit=False) as session:
+            model = session.get(PublishDraftModel, draft_id)
+            if model is None:
+                return None
+            return self._draft_to_dict(model)
+
+    def update_publish_draft(
+        self,
+        draft_id: str,
+        updates: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """Update editable fields on a system draft."""
+        with self._session_scope() as session:
+            model = session.get(PublishDraftModel, draft_id)
+            if model is None:
+                return None
+
+            for field in ("title", "body", "summary", "cta", "notes", "status"):
+                if field in updates and updates[field] is not None:
+                    setattr(model, field, str(updates[field]))
+            if "hashtags" in updates and updates["hashtags"] is not None:
+                model.hashtags_json = list(updates["hashtags"])
+            model.updated_at = datetime.now(timezone.utc)
+            session.flush()
+            return self._draft_to_dict(model)
+
     def update_status(self, project_id: str, status: str) -> ProjectRecord | None:
         """Update a project's workflow status."""
         with self._session_scope() as session:
@@ -232,6 +303,7 @@ class ProjectRepository:
     def clear(self) -> None:
         """Remove all project data (useful for testing)."""
         with self._session_scope() as session:
+            session.execute(delete(PublishDraftModel))
             session.execute(delete(EvaluationReportModel))
             session.execute(delete(PublishResultModel))
             session.execute(delete(PublishTaskModel))
@@ -279,3 +351,20 @@ class ProjectRepository:
                 for preview in model.previews
             ],
         )
+
+    @staticmethod
+    def _draft_to_dict(model: PublishDraftModel) -> dict[str, Any]:
+        return {
+            "draft_id": model.draft_id,
+            "project_id": model.project_id,
+            "platform": model.platform,
+            "title": model.title,
+            "body": model.body,
+            "hashtags": model.hashtags_json,
+            "summary": model.summary,
+            "cta": model.cta,
+            "notes": model.notes,
+            "status": model.status,
+            "created_at": model.created_at,
+            "updated_at": model.updated_at,
+        }

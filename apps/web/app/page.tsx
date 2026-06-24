@@ -10,6 +10,8 @@ import type {
   AgentRun,
   AgentStep,
   Platform,
+  PublishDraft,
+  PublishDraftStatus,
   ProjectPreviewItem,
   ProjectResponse,
   GeneratePreviewResponse,
@@ -34,9 +36,19 @@ const WORKFLOW_STEPS = [
   "Platform Strategy",
   "Preview Generation",
   "Review",
+  "Save Draft",
+  "Manual Handoff",
   "Mock Publish",
   "Evaluation",
 ];
+
+const DRAFT_STATUS_LABELS: Record<PublishDraftStatus, string> = {
+  draft: "草稿",
+  reviewed: "已复核",
+  exported: "已导出",
+  handoff_opened: "已打开发布页",
+  archived: "已归档",
+};
 
 export default function Home() {
   const [title, setTitle] = useState("");
@@ -66,6 +78,15 @@ export default function Home() {
   const [isExporting, setIsExporting] = useState(false);
   const [exportMessage, setExportMessage] = useState("");
   const [exportError, setExportError] = useState("");
+  const [drafts, setDrafts] = useState<PublishDraft[]>([]);
+  const [selectedDraftId, setSelectedDraftId] = useState("");
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftBody, setDraftBody] = useState("");
+  const [draftHashtags, setDraftHashtags] = useState("");
+  const [draftNotes, setDraftNotes] = useState("");
+  const [draftMessage, setDraftMessage] = useState("");
+  const [draftError, setDraftError] = useState("");
+  const [isDraftBusy, setIsDraftBusy] = useState(false);
 
   const trimmedTitle = title.trim();
   const trimmedSourceText = sourceText.trim();
@@ -118,6 +139,10 @@ export default function Home() {
       setExportMessage("");
       setExportError("");
       setIsExporting(false);
+      setDrafts([]);
+      setSelectedDraftId("");
+      setDraftMessage("");
+      setDraftError("");
       setStep("result");
     } catch (err) {
       setErrorMessage(getErrorMessage(err, "生成预览失败，请稍后重试"));
@@ -150,6 +175,15 @@ export default function Home() {
     setIsExporting(false);
     setExportMessage("");
     setExportError("");
+    setDrafts([]);
+    setSelectedDraftId("");
+    setDraftTitle("");
+    setDraftBody("");
+    setDraftHashtags("");
+    setDraftNotes("");
+    setDraftMessage("");
+    setDraftError("");
+    setIsDraftBusy(false);
   }, []);
 
   const downloadFile = useCallback((filename: string, content: string, type: string) => {
@@ -303,6 +337,142 @@ export default function Home() {
     }
   }, [projectId, publishPlatforms, reviewStatus]);
 
+  const selectedDraft = drafts.find((draft) => draft.draft_id === selectedDraftId) ?? null;
+
+  const upsertDraft = useCallback((draft: PublishDraft) => {
+    setDrafts((current) => {
+      const existing = current.some((item) => item.draft_id === draft.draft_id);
+      if (existing) {
+        return current.map((item) => (item.draft_id === draft.draft_id ? draft : item));
+      }
+      return [draft, ...current];
+    });
+    setSelectedDraftId(draft.draft_id);
+    setDraftTitle(draft.title);
+    setDraftBody(draft.body);
+    setDraftHashtags(draft.hashtags.join(", "));
+    setDraftNotes(draft.notes);
+    setDraftMessage("草稿已保存。");
+    setDraftError("");
+  }, []);
+
+  const selectDraft = useCallback((draft: PublishDraft) => {
+    setSelectedDraftId(draft.draft_id);
+    setDraftTitle(draft.title);
+    setDraftBody(draft.body);
+    setDraftHashtags(draft.hashtags.join(", "));
+    setDraftNotes(draft.notes);
+    setDraftMessage("");
+    setDraftError("");
+  }, []);
+
+  const refreshDrafts = useCallback(async () => {
+    if (!projectId) return;
+    setIsDraftBusy(true);
+    setDraftError("");
+    try {
+      const response = await api.listPublishDrafts(projectId);
+      setDrafts(response.data);
+      if (!selectedDraftId && response.data.length > 0) {
+        selectDraft(response.data[0]);
+      }
+      setDraftMessage("草稿列表已刷新。");
+    } catch (error) {
+      setDraftError(getErrorMessage(error, "加载草稿失败，请稍后重试"));
+    } finally {
+      setIsDraftBusy(false);
+    }
+  }, [projectId, selectDraft, selectedDraftId]);
+
+  const saveDraftEdits = useCallback(async () => {
+    if (!selectedDraft) return;
+    setIsDraftBusy(true);
+    setDraftMessage("");
+    setDraftError("");
+    try {
+      const response = await api.updatePublishDraft(selectedDraft.draft_id, {
+        title: draftTitle,
+        body: draftBody,
+        hashtags: draftHashtags
+          .split(/[,，\s]+/)
+          .map((tag) => tag.trim().replace(/^#/, ""))
+          .filter(Boolean),
+        notes: draftNotes,
+      });
+      upsertDraft(response.data);
+      setDraftMessage("草稿已更新。");
+    } catch (error) {
+      setDraftError(getErrorMessage(error, "更新草稿失败，请稍后重试"));
+    } finally {
+      setIsDraftBusy(false);
+    }
+  }, [draftBody, draftHashtags, draftNotes, draftTitle, selectedDraft, upsertDraft]);
+
+  const copyDraftContent = useCallback(async (draft: PublishDraft) => {
+    setDraftMessage("");
+    setDraftError("");
+    if (!navigator.clipboard) {
+      setDraftError("当前浏览器不支持 Clipboard API");
+      return;
+    }
+    const text = [
+      draft.title,
+      "",
+      draft.body,
+      "",
+      draft.hashtags.map((tag) => `#${tag}`).join(" "),
+      draft.cta,
+    ]
+      .filter((part) => part.trim().length > 0)
+      .join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      setDraftMessage("草稿内容已复制。");
+    } catch (error) {
+      setDraftError(getErrorMessage(error, "复制草稿失败，请稍后重试"));
+    }
+  }, []);
+
+  const exportDraft = useCallback(
+    async (draft: PublishDraft, format: "json" | "markdown") => {
+      setIsDraftBusy(true);
+      setDraftMessage("");
+      setDraftError("");
+      try {
+        const response = await api.exportPublishDraft(draft.draft_id, format);
+        downloadFile(
+          response.data.filename,
+          response.data.content,
+          format === "json" ? "application/json;charset=utf-8" : "text/markdown;charset=utf-8",
+        );
+        const refreshed = await api.listPublishDrafts(draft.project_id);
+        setDrafts(refreshed.data);
+        setDraftMessage(`${format === "json" ? "JSON" : "Markdown"} 草稿已导出。`);
+      } catch (error) {
+        setDraftError(getErrorMessage(error, "导出草稿失败，请稍后重试"));
+      } finally {
+        setIsDraftBusy(false);
+      }
+    },
+    [downloadFile],
+  );
+
+  const openDraftHandoff = useCallback(async (draft: PublishDraft) => {
+    setIsDraftBusy(true);
+    setDraftMessage("");
+    setDraftError("");
+    try {
+      const response = await api.openPublishDraftHandoff(draft.draft_id);
+      upsertDraft(response.data.draft);
+      window.open(response.data.official_publish_url, "_blank", "noopener,noreferrer");
+      setDraftMessage(response.data.message);
+    } catch (error) {
+      setDraftError(getErrorMessage(error, "打开官方发布页失败，请稍后重试"));
+    } finally {
+      setIsDraftBusy(false);
+    }
+  }, [upsertDraft]);
+
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#eef6ff_0%,#f8fafc_35%,#ffffff_100%)] dark:bg-[linear-gradient(180deg,#07111f_0%,#0f172a_42%,#111827_100%)]">
       {/* Header */}
@@ -397,10 +567,31 @@ export default function Home() {
               </h2>
               <PlatformSelector selected={selectedPlatforms} onChange={setSelectedPlatforms} />
 
-              <div className="mt-6 rounded-xl border border-sky-200 bg-sky-50 p-4 text-xs leading-5 text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-200">
-                <p className="font-semibold">Demo guardrails</p>
-                <p className="mt-1">No real LLM calls. No real platform publishing.</p>
-                <p>Mock Publish requires Human Review approval.</p>
+
+              <div className="mt-6 space-y-3">
+                {/* DeepSeek status indicator */}
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs leading-5 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200">
+                  <p className="font-semibold">⚡ DeepSeek 已启用</p>
+                  <p className="mt-1">
+                    LLM_PROVIDER=deepseek，使用 DeepSeek 生成平台内容。如改用 Mock 模式，请在 .env 中设置 LLM_PROVIDER=mock。
+                  </p>
+                </div>
+
+                {/* Publishing mode clarification */}
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+                  <div className="space-y-2">
+                    <p className="font-semibold">📋 发布流程说明</p>
+                    <div className="flex items-start gap-2">
+                      <span className="mt-0.5 shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">模拟</span>
+                      <span><strong>Mock Publish</strong> — 模拟发布，记录模拟结果，需先通过人工审核。</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="mt-0.5 shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">人工</span>
+                      <span><strong>打开发布页</strong> — 打开平台官方发布页，仍需手动粘贴、检查并确认提交。不使用 Cookie / Playwright / Selenium。</span>
+                    </div>
+                  </div>
+                </div>
+
               </div>
 
               <div className="mt-6">
@@ -571,8 +762,166 @@ export default function Home() {
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               {previews.map((preview) => (
-                <PreviewCard key={preview.platform} preview={preview} />
+                <PreviewCard
+                  key={preview.platform}
+                  preview={preview}
+                  projectId={projectId}
+                  onDraftSaved={upsertDraft}
+                />
               ))}
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200">
+                    发布草稿箱
+                  </h3>
+                  <p className="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                    这是 OmniFlow-AI 系统内草稿箱，不是平台官方草稿箱。发布仍需要你进入平台官方发布页手动确认提交。
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void refreshDrafts()}
+                  disabled={isDraftBusy || !projectId}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-900"
+                >
+                  刷新草稿
+                </button>
+              </div>
+
+              {drafts.length === 0 ? (
+                <div className="mt-5 rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                  还没有发布草稿。可以在任一平台 PreviewCard 中点击“保存为草稿”。
+                </div>
+              ) : (
+                <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+                  <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className="grid grid-cols-[0.7fr_1fr_0.7fr_0.9fr] gap-2 border-b border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
+                      <span>平台</span>
+                      <span>标题</span>
+                      <span>状态</span>
+                      <span>更新时间</span>
+                    </div>
+                    <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {drafts.map((draft) => (
+                        <button
+                          key={draft.draft_id}
+                          type="button"
+                          onClick={() => selectDraft(draft)}
+                          className={`grid w-full grid-cols-[0.7fr_1fr_0.7fr_0.9fr] gap-2 px-3 py-3 text-left text-xs transition ${
+                            selectedDraftId === draft.draft_id
+                              ? "bg-sky-50 text-sky-900 dark:bg-sky-950/40 dark:text-sky-100"
+                              : "text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-900"
+                          }`}
+                        >
+                          <span>{draft.platform}</span>
+                          <span className="truncate">{draft.title}</span>
+                          <span>{DRAFT_STATUS_LABELS[draft.status]}</span>
+                          <span>{new Date(draft.updated_at).toLocaleString()}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {selectedDraft && (
+                    <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+                      <div className="mb-4 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void copyDraftContent(selectedDraft)}
+                          className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-900"
+                        >
+                          复制
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void exportDraft(selectedDraft, "markdown")}
+                          disabled={isDraftBusy}
+                          className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-900"
+                        >
+                          导出 Markdown
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void exportDraft(selectedDraft, "json")}
+                          disabled={isDraftBusy}
+                          className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-900"
+                        >
+                          导出 JSON
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void openDraftHandoff(selectedDraft)}
+                          disabled={isDraftBusy}
+                          className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-gray-800 disabled:opacity-50 dark:bg-gray-100 dark:text-gray-950 dark:hover:bg-white"
+                        >
+                          打开发布页
+                        </button>
+                      </div>
+
+                      <div className="space-y-3">
+                        <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300">
+                          标题
+                          <input
+                            value={draftTitle}
+                            onChange={(event) => setDraftTitle(event.target.value)}
+                            className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-normal text-gray-900 outline-none transition focus:border-sky-500 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                          />
+                        </label>
+                        <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300">
+                          正文
+                          <textarea
+                            value={draftBody}
+                            onChange={(event) => setDraftBody(event.target.value)}
+                            rows={7}
+                            className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-normal leading-6 text-gray-900 outline-none transition focus:border-sky-500 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                          />
+                        </label>
+                        <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300">
+                          标签
+                          <input
+                            value={draftHashtags}
+                            onChange={(event) => setDraftHashtags(event.target.value)}
+                            className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-normal text-gray-900 outline-none transition focus:border-sky-500 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                          />
+                        </label>
+                        <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300">
+                          备注
+                          <textarea
+                            value={draftNotes}
+                            onChange={(event) => setDraftNotes(event.target.value)}
+                            rows={3}
+                            className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-normal leading-6 text-gray-900 outline-none transition focus:border-sky-500 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                          />
+                        </label>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => void saveDraftEdits()}
+                        disabled={isDraftBusy || !draftTitle.trim() || !draftBody.trim()}
+                        className="mt-4 rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700"
+                      >
+                        保存编辑
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {(draftMessage || draftError) && (
+                <p
+                  className={`mt-4 text-xs ${
+                    draftError
+                      ? "text-red-600 dark:text-red-400"
+                      : "text-green-700 dark:text-green-300"
+                  }`}
+                >
+                  {draftError || draftMessage}
+                </p>
+              )}
             </div>
 
             <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
@@ -696,7 +1045,7 @@ export default function Home() {
                           : "border-red-200 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/30"
                       }`}
                     >
-                      Reject
+                      拒绝
                     </button>
                     <button
                       onClick={handleApprove}
@@ -707,7 +1056,7 @@ export default function Home() {
                           : "bg-green-600 hover:bg-green-700 active:bg-green-800"
                       }`}
                     >
-                      Approve
+                      批准发布
                     </button>
                   </div>
                 </div>
@@ -717,9 +1066,12 @@ export default function Home() {
                 )}
               </div>
 
-              <h3 className="mb-4 text-base font-semibold text-gray-800 dark:text-gray-200">
-                Mock Publish
-              </h3>
+              <div className="mb-3 flex items-center gap-2">
+                <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">模拟</span>
+                <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200">
+                  Mock Publish — 模拟发布
+                </h3>
+              </div>
               <PlatformSelector selected={publishPlatforms} onChange={setPublishPlatforms} />
               <div className="mt-5 flex justify-center">
                 <button
@@ -733,7 +1085,7 @@ export default function Home() {
                       : "bg-gray-900 hover:bg-gray-800 active:bg-black dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white"
                   }`}
                 >
-                  {isPublishing ? "正在 Mock Publish…" : "Mock Publish"}
+                  {isPublishing ? "正在模拟发布…" : "运行 Mock Publish"}
                 </button>
               </div>
 
